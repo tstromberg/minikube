@@ -19,10 +19,7 @@ limitations under the License.
 package integration
 
 import (
-	"strings"
 	"testing"
-
-	"k8s.io/minikube/test/integration/util"
 )
 
 func TestFunctional(t *testing.T) {
@@ -46,9 +43,4 @@ func TestFunctional(t *testing.T) {
 		t.Run("IngressController", testIngressController)
 		t.Run("Mounting", testMounting)
 	}
-}
-
-// usingNoneDriver returns true if using the none driver
-func usingNoneDriver(runner util.MinikubeRunner) bool {
-	return strings.Contains(runner.StartArgs, "--vm-driver=none")
 }

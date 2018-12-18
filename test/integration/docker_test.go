@@ -19,7 +19,6 @@ limitations under the License.
 package integration
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -27,31 +26,16 @@ import (
 )
 
 func TestDocker(t *testing.T) {
-	mk := NewMinikubeRunner(t)
+	ctx, mk, kc := SetupWithTimeout(t, time.Minute*10)
 	if strings.Contains(mk.StartArgs, "--vm-driver=none") {
 		t.Skip("skipping test as none driver does not bundle docker")
 	}
 
-	// Start a timer for all remaining commands, to display failure output before a panic.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-
 	// Pre-cleanup: this usually fails, because no instance is running.
-	mk.RunWithContext(ctx, "delete")
-
-	startCmd := fmt.Sprintf("start %s %s %s", mk.StartArgs, mk.Args,
-		"--docker-env=FOO=BAR --docker-env=BAZ=BAT --docker-opt=debug --docker-opt=icc=true")
-	out, err := mk.RunWithContext(ctx, startCmd)
-	if err != nil {
-		t.Fatalf("start: %v\nstart out: %s", err, out)
-	}
-
-	mk.EnsureRunning()
-
-	out, err = mk.RunWithContext(ctx, "ssh -- systemctl show docker --property=Environment --no-pager")
-	if err != nil {
-		t.Errorf("docker env: %v\ndocker env out: %s", err, out)
-	}
+	mk.Run(ctx, "delete")
+	mk.MustRun(ctx, mk.StartArgs()..., "--docker-env=FOO=BAR", "--docker-env=BAZ=BAT", "--docker-opt=debug", "--docker-opt=icc=true")
+	mk.MustBeInState(state.Running)
+	out := mk.MustRun(ctx, "ssh", "--", "systemctl show docker --property=Environment --no-pager")
 
 	for _, envVar := range []string{"FOO=BAR", "BAZ=BAT"} {
 		if !strings.Contains(string(out), envVar) {
@@ -59,10 +43,7 @@ func TestDocker(t *testing.T) {
 		}
 	}
 
-	out, err = mk.RunWithContext(ctx, "ssh -- systemctl show docker --property=ExecStart --no-pager")
-	if err != nil {
-		t.Errorf("ssh show docker: %v\nshow docker out: %s", err, out)
-	}
+	out := mk.MustRun(ctx, "ssh", "--", "systemctl show docker --property=Environment --no-pager")
 	for _, opt := range []string{"--debug", "--icc=true"} {
 		if !strings.Contains(string(out), opt) {
 			t.Fatalf("Option %s missing from ExecStart: %s.", opt, out)

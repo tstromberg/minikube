@@ -21,11 +21,22 @@ package integration
 import (
 	"os"
 	"os/exec"
+	"regexp"
 	"testing"
 	"time"
 
 	"k8s.io/minikube/test/integration/util"
 )
+
+// parseEnv parses the output of `env` (assumes bash)
+func parseEnv(out string) map[string]string {
+	env := map[string]string{}
+	re := regexp.MustCompile(`(\w+?) ?= ?"?(.+?)"?\n`)
+	for _, m := range re.FindAllStringSubmatch(out, -1) {
+		env[m[1]] = m[2]
+	}
+	return env
+}
 
 // Assert that docker-env subcommand outputs usable information for "docker ps"
 func testClusterEnv(t *testing.T) {
@@ -35,7 +46,7 @@ func testClusterEnv(t *testing.T) {
 
 	// Set a specific shell syntax so that we don't have to handle every possible user shell
 	envOut := r.RunCommand("docker-env --shell=bash", true)
-	vars := r.ParseEnvCmdOutput(envOut)
+	vars := parseEnv(envOut)
 	if len(vars) == 0 {
 		t.Fatalf("Failed to parse env vars:\n%s", envOut)
 	}

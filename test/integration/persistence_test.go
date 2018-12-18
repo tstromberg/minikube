@@ -29,49 +29,29 @@ import (
 )
 
 func TestPersistence(t *testing.T) {
-	minikubeRunner := NewMinikubeRunner(t)
-	if strings.Contains(minikubeRunner.StartArgs, "--vm-driver=none") {
+	ctx, cancel, mk, kc := SetupWithTimeout(10.time.Minute)
+	defer cancel()
+	if mk.VMDriver == "none" {
 		t.Skip("skipping test as none driver does not support persistence")
 	}
-	minikubeRunner.EnsureRunning()
-
-	kubectlRunner := util.NewKubectlRunner(t)
-	podPath, _ := filepath.Abs("testdata/busybox.yaml")
-
-	// Create a pod and wait for it to be running.
-	if _, err := kubectlRunner.RunCommand([]string{"create", "-f", podPath}); err != nil {
-		t.Fatalf("Error creating test pod: %v", err)
-	}
+	mk.MustRun(ctx, mk.StartCmd())
+	kc.MustRun(ctx, "create -f testdata/busybox.yaml")
 
 	verify := func(t *testing.T) {
-		if err := util.WaitForDashboardRunning(t); err != nil {
-			t.Fatalf("waiting for dashboard to be up: %v", err)
+		t.Helper()
+		if err := commonutil.WaitForDeployment("kube-system", "kubernetes-dashboard", time.Minute*10); err != nil {
+			t.Fatalf(util.ErrMsg(ctx, "dashboard", err, Logs{minikube: mk)})
 		}
-
-		if err := util.WaitForBusyboxRunning(t, "default"); err != nil {
-			t.Fatalf("waiting for busybox to be up: %v", err)
+		if err := commonutil.WaitForPods("default", map[string]string{"integration-test": "busybox"}); err != nil {
+			t.Fatalf(util.ErrMsg(ctx, "busybox", err, Logs{minikube: mk)})
 		}
-
 	}
-
-	// Make sure everything is up before we stop.
 	verify(t)
 
-	// Now restart minikube and make sure the pod is still there.
-	// minikubeRunner.RunCommand("stop", true)
-	// minikubeRunner.CheckStatus("Stopped")
-	checkStop := func() error {
-		minikubeRunner.RunCommand("stop", true)
-		return minikubeRunner.CheckStatusNoFail(state.Stopped.String())
-	}
-
-	if err := util.Retry(t, checkStop, 5*time.Second, 6); err != nil {
-		t.Fatalf("timed out while checking stopped status: %v", err)
-	}
-
-	minikubeRunner.Start()
-	minikubeRunner.CheckStatus(state.Running.String())
-
-	// Make sure the same things come up after we've restarted.
+	// Restart and verify pod existence
+	mk.MustRun(ctx, "stop")
+	mk.WaitForState(ctx, state.Running, 5*time.Minute)
+	mk.MustRun(ctx, "start")
+	mk.MustBeInState(state.Running)
 	verify(t)
 }

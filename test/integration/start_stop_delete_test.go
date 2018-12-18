@@ -19,14 +19,13 @@ limitations under the License.
 package integration
 
 import (
+	"context"
 	"net"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/docker/machine/libmachine/state"
 	"k8s.io/minikube/pkg/minikube/constants"
-	"k8s.io/minikube/test/integration/util"
 )
 
 func TestStartStop(t *testing.T) {
@@ -46,39 +45,32 @@ func TestStartStop(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			runner := NewMinikubeRunner(t)
-			if test.runtime != "" && usingNoneDriver(runner) {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+			defer cancel()
+
+			mk := NewMinikubeRunner()
+			if test.runtime != "" && mk.VMDriver == "none" {
 				t.Skipf("skipping, can't use %s with none driver", test.runtime)
 			}
 
-			runner.RunCommand("config set WantReportErrorPrompt false", true)
-			runner.RunCommand("delete", false)
-			runner.CheckStatus(state.None.String())
+			mk.MustRun(ctx, "config set WantReportErrorPrompt false")
+			mk.Run(ctx, "delete")
+			mk.MustBeInState(state.None)
 
 			runner.SetRuntime(test.runtime)
-			runner.Start()
-			runner.CheckStatus(state.Running.String())
+			mk.Run(ctx, mk.StartArgs())
+			mk.MustBeInState(state.Running)
 
-			ip := runner.RunCommand("ip", true)
-			ip = strings.TrimRight(ip, "\n")
+			ip := mk.MustRun(ctx, "ip").TrimRight("\n")
 			if net.ParseIP(ip) == nil {
-				t.Fatalf("IP command returned an invalid address: %s", ip)
+				t.Fatalf(util.Msg(ctx, fmt.Sprintf("invalid IP address: %s", ip), Logs{minikube: mk})
 			}
-
-			checkStop := func() error {
-				runner.RunCommand("stop", true)
-				return runner.CheckStatusNoFail(state.Stopped.String())
-			}
-
-			if err := util.Retry(t, checkStop, 5*time.Second, 6); err != nil {
-				t.Fatalf("timed out while checking stopped status: %v", err)
-			}
-
-			runner.Start()
-			runner.CheckStatus(state.Running.String())
-
-			runner.RunCommand("delete", true)
-			runner.CheckStatus(state.None.String())
+			mk.MustRun(ctx, "stop")
+			mk.MustBeInState(ctx, state.Stopped)
+			mk.MustRun(mk.StartArgs())
+			mk.MustBeInState(ctx, state.Running)
+			mk.MustRun(ctx, "delete")
+			mk.MustBeInState(ctx, state.None)
 		})
 	}
 }

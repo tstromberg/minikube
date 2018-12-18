@@ -30,10 +30,68 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	pkgutil "k8s.io/minikube/pkg/util"
 	"k8s.io/minikube/test/integration/util"
 )
+
+func waitForNginx(t *testing.T) error {
+	client, err := commonutil.GetClient()
+
+	if err != nil {
+		return errors.Wrap(err, "getting kubernetes client")
+	}
+
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{"run": "nginx"}))
+	if err := commonutil.WaitForPodsWithLabel(client, "default", selector); err != nil {
+		return errors.Wrap(err, "waiting for nginx pods")
+	}
+
+	if err := commonutil.WaitForService(client, "default", "nginx", true, time.Millisecond*500, time.Minute*10); err != nil {
+		t.Errorf("Error waiting for nginx service to be up")
+	}
+	return nil
+}
+
+func waitForIngressController(t *testing.T) error {
+	client, err := commonutil.GetClient()
+	if err != nil {
+		return errors.Wrap(err, "getting kubernetes client")
+	}
+
+	if err := commonutil.WaitForDeploymentToStabilize(client, "kube-system", "nginx-ingress-controller", time.Minute*10); err != nil {
+		return errors.Wrap(err, "waiting for ingress-controller deployment to stabilize")
+	}
+
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{"app.kubernetes.io/name": "nginx-ingress-controller"}))
+	if err := commonutil.WaitForPodsWithLabel(client, "kube-system", selector); err != nil {
+		return errors.Wrap(err, "waiting for ingress-controller pods")
+	}
+
+	return nil
+}
+
+func waitForIngressDefaultBackend(t *testing.T) error {
+	client, err := commonutil.GetClient()
+	if err != nil {
+		return errors.Wrap(err, "getting kubernetes client")
+	}
+
+	if err := commonutil.WaitForDeploymentToStabilize(client, "kube-system", "default-http-backend", time.Minute*10); err != nil {
+		return errors.Wrap(err, "waiting for default-http-backend deployment to stabilize")
+	}
+
+	if err := commonutil.WaitForService(client, "kube-system", "default-http-backend", true, time.Millisecond*500, time.Minute*10); err != nil {
+		return errors.Wrap(err, "waiting for default-http-backend service to be up")
+	}
+
+	if err := commonutil.WaitForServiceEndpointsNum(client, "kube-system", "default-http-backend", 1, time.Second*3, time.Minute*10); err != nil {
+		return errors.Wrap(err, "waiting for one default-http-backend endpoint to be up")
+	}
+
+	return nil
+}
 
 func testAddons(t *testing.T) {
 	t.Parallel()
@@ -42,7 +100,7 @@ func testAddons(t *testing.T) {
 		t.Fatalf("Could not get kubernetes client: %v", err)
 	}
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{"component": "kube-addon-manager"}))
-	if err := pkgutil.WaitForPodsWithLabelRunning(client, "kube-system", selector); err != nil {
+	if err := pkgutil.WaitForPodsWithLabel(client, "kube-system", selector); err != nil {
 		t.Errorf("Error waiting for addon manager to be up")
 	}
 }
@@ -73,8 +131,8 @@ func readLineWithTimeout(b *bufio.Reader, timeout time.Duration) (string, error)
 
 func testDashboard(t *testing.T) {
 	t.Parallel()
-	minikubeRunner := NewMinikubeRunner(t)
-	cmd, out := minikubeRunner.RunDaemon("dashboard --url")
+	mk := NewMinikubeRunner()
+	cmd, out := minikubeRunner.RunDaemon(ctx, "dashboard --url")
 	defer func() {
 		err := cmd.Process.Kill()
 		if err != nil {
@@ -118,68 +176,55 @@ func testDashboard(t *testing.T) {
 
 func testIngressController(t *testing.T) {
 	t.Parallel()
-	minikubeRunner := NewMinikubeRunner(t)
-	kubectlRunner := util.NewKubectlRunner(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
 
-	minikubeRunner.RunCommand("addons enable ingress", true)
-	if err := util.WaitForIngressControllerRunning(t); err != nil {
+	mk := NewMinikubeRunner()
+	mk.MustRun(ctx, t, "addons enable ingress")
+	if err := waitForIngressController(t); err != nil {
 		t.Fatalf("waiting for ingress-controller to be up: %v", err)
 	}
 
-	if err := util.WaitForIngressDefaultBackendRunning(t); err != nil {
+	if err := waitForIngressDefaultBackend(t); err != nil {
 		t.Fatalf("waiting for default-http-backend to be up: %v", err)
 	}
 
-	ingressPath, _ := filepath.Abs("testdata/nginx-ing.yaml")
-	if _, err := kubectlRunner.RunCommand([]string{"create", "-f", ingressPath}); err != nil {
-		t.Fatalf("creating nginx ingress resource: %v", err)
-	}
-
-	podPath, _ := filepath.Abs("testdata/nginx-pod-svc.yaml")
-	if _, err := kubectlRunner.RunCommand([]string{"create", "-f", podPath}); err != nil {
-		t.Fatalf("creating nginx ingress resource: %v", err)
-	}
-
-	if err := util.WaitForNginxRunning(t); err != nil {
+	kc := util.NewKubectlRunner()
+	kc.MustRun(ctx, t, "create -f testdata/nginx-ing.yaml")
+	kc.MustRun(ctx, t, "create -f testdata/nginx-pod-svc.yaml")
+	if err := util.waitForNginx(t); err != nil {
 		t.Fatalf("waiting for nginx to be up: %v", err)
 	}
 
 	checkIngress := func() error {
-		expectedStr := "Welcome to nginx!"
-		runCmd := fmt.Sprintf("curl http://127.0.0.1:80 -H 'Host: nginx.example.com'")
-		sshCmdOutput, _ := minikubeRunner.SSH(runCmd)
-		if !strings.Contains(sshCmdOutput, expectedStr) {
-			return fmt.Errorf("ExpectedStr sshCmdOutput to be: %s. Output was: %s", expectedStr, sshCmdOutput)
+		want := "Welcome to nginx!"
+		got, stderr, err := mk.Run("ssh -- curl http://127.0.0.1:80 -H 'Host: nginx.example.com'")
+		if !strings.Contains(got, want) {
+			return fmt.Errorf("got: %q, want: %q", got, want)
 		}
 		return nil
-	}
-
-	if err := util.Retry(t, checkIngress, 3*time.Second, 5); err != nil {
-		t.Fatalf(err.Error())
 	}
 
 	defer func() {
 		for _, p := range []string{podPath, ingressPath} {
-			if out, err := kubectlRunner.RunCommand([]string{"delete", "-f", p}); err != nil {
+			if stdout, stderr, err := kc.Run(ctx, fmt.Sprintf("delete -f %s")); err != nil {
 				t.Logf("delete -f %s failed: %v\noutput: %s\n", p, err, out)
 			}
 		}
-	}()
-	minikubeRunner.RunCommand("addons disable ingress", true)
+	}()	
+	util.MustRetry(ctx,t, checkIngress, 3*time.Second, 5)
+	mk.MustRun("addons disable ingress")
 }
 
 func testServicesList(t *testing.T) {
 	t.Parallel()
-	minikubeRunner := NewMinikubeRunner(t)
 
-	checkServices := func() error {
-		output := minikubeRunner.RunCommand("service list", false)
-		if !strings.Contains(output, "kubernetes") {
-			return fmt.Errorf("Error, kubernetes service missing from output %s", output)
-		}
-		return nil
-	}
-	if err := util.Retry(t, checkServices, 2*time.Second, 5); err != nil {
-		t.Fatalf(err.Error())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	mk := NewMinikubeRunner(t)
+	stdout := mk.MustRun(ctx, "service list")
+	if !strings.Contains(stdout, "kubernetes") {
+		t.Fatalf(util.Msg(fmt.Sprintf("kubernetes service missing from output %s", output)))
 	}
 }
