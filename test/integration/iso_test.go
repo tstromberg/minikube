@@ -19,32 +19,38 @@ limitations under the License.
 package integration
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestISO(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
 
-	minikubeRunner := NewMinikubeRunner(t)
-
-	minikubeRunner.RunCommand("delete", true)
-	minikubeRunner.Start()
+	mk := NewMinikubeRunner()
+	mk.Run(ctx, "delete")
+	mk.MustRun(ctx, mk.StartArgs())
 
 	t.Run("permissions", testMountPermissions)
-	t.Run("packages", testPackages)
-	t.Run("persistence", testPersistence)
+	t.Run("binaries", testInstalledBinaries)
+	t.Run("persistence", testMountPersistence)
 }
 
 func testMountPermissions(t *testing.T) {
-	minikubeRunner := NewMinikubeRunner(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	mk := NewMinikubeRunner()
 	// test mount permissions
 	mountPoints := []string{"/Users", "/hosthome"}
 	perms := "drwxr-xr-x"
 	foundMount := false
 
 	for _, dir := range mountPoints {
-		output, err := minikubeRunner.SSH(fmt.Sprintf("ls -l %s", dir))
+		stdout, stderr, err := mk.SSH(fmt.Sprintf("ls -l %s", dir))
 		if err != nil {
 			continue
 		}
@@ -58,7 +64,10 @@ func testMountPermissions(t *testing.T) {
 	}
 }
 
-func testPackages(t *testing.T) {
+func testInstalledBinaries(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
 	minikubeRunner := NewMinikubeRunner(t)
 
 	packages := []string{
@@ -73,14 +82,17 @@ func testPackages(t *testing.T) {
 	}
 
 	for _, pkg := range packages {
-		if output, err := minikubeRunner.SSH(fmt.Sprintf("which %s", pkg)); err != nil {
+		if stdout, stderr, err := minikubeRunner.SSH(fmt.Sprintf("which %s", pkg)); err != nil {
 			t.Errorf("Error finding package: %s. Error: %v. Output: %s", pkg, err, output)
 		}
 	}
 
 }
 
-func testPersistence(t *testing.T) {
+func testMountPersistence(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
 	minikubeRunner := NewMinikubeRunner(t)
 
 	for _, dir := range []string{

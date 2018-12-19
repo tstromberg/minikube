@@ -48,7 +48,7 @@ func TestStartStop(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 			defer cancel()
 
-			mk := NewMinikubeRunner()
+			mk := NewMinikubeRunner(&Config{Runtime: test.runtime})
 			if test.runtime != "" && mk.VMDriver == "none" {
 				t.Skipf("skipping, can't use %s with none driver", test.runtime)
 			}
@@ -56,8 +56,6 @@ func TestStartStop(t *testing.T) {
 			mk.MustRun(ctx, "config set WantReportErrorPrompt false")
 			mk.Run(ctx, "delete")
 			mk.MustBeInState(state.None)
-
-			runner.SetRuntime(test.runtime)
 			mk.Run(ctx, mk.StartArgs())
 			mk.MustBeInState(state.Running)
 

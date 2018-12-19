@@ -42,7 +42,7 @@ func testMounting(t *testing.T) {
 	}
 
 	t.Parallel()
-	minikubeRunner := NewMinikubeRunner(t)
+	mk := NewMinikubeRunner(t)
 
 	tempDir, err := ioutil.TempDir("", "mounttest")
 	if err != nil {
@@ -51,7 +51,7 @@ func testMounting(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	mountCmd := fmt.Sprintf("mount %s:/mount-9p", tempDir)
-	cmd, _ := minikubeRunner.RunDaemon(mountCmd)
+	cmd, _ := mk.RunDaemon(mountCmd)
 	defer func() {
 		err := cmd.Process.Kill()
 		if err != nil {
@@ -59,7 +59,7 @@ func testMounting(t *testing.T) {
 		}
 	}()
 
-	kubectlRunner := util.NewKubectlRunner(t)
+	kc := util.NewKubectlRunner(t)
 	podName := "busybox-mount"
 	podPath, _ := filepath.Abs("testdata/busybox-mount-test.yaml")
 
@@ -76,13 +76,13 @@ func testMounting(t *testing.T) {
 
 	// Create the pods we need outside the main test loop.
 	setupTest := func() error {
-		if _, err := kubectlRunner.RunCommand([]string{"create", "-f", podPath}); err != nil {
+		if _, err := kc.Run(fmt.Sprintf("create -f %s", podPath)}); err != nil {
 			return err
 		}
 		return nil
 	}
 	defer func() {
-		if out, err := kubectlRunner.RunCommand([]string{"delete", "-f", podPath}); err != nil {
+		if out, err := kc.RunCommand([]string{"delete", "-f", podPath}); err != nil {
 			t.Logf("delete -f %s failed: %v\noutput: %s\n", podPath, err, out)
 		}
 	}()
@@ -133,8 +133,5 @@ func testMounting(t *testing.T) {
 
 		return nil
 	}
-	if err := util.Retry(t, mountTest, 5*time.Second, 40); err != nil {
-		t.Fatalf("mountTest failed with error: %v", err)
-	}
-
+	util.MustRetry(t, mountTest, 5*time.Second, 5*time.Minute)
 }
