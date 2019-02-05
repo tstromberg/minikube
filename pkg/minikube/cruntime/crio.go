@@ -1,10 +1,7 @@
 package cruntime
 
 import (
-	"bytes"
 	"fmt"
-	"html/template"
-	"path"
 
 	"github.com/golang/glog"
 )
@@ -39,39 +36,12 @@ func (r *CRIO) Active() bool {
 	return err == nil
 }
 
-// createConfigFile runs the commands necessary to create crictl.yaml
-func (r *CRIO) createConfigFile() error {
-	var (
-		crictlYamlTmpl = `runtime-endpoint: {{.RuntimeEndpoint}}
-image-endpoint: {{.ImageEndpoint}}
-`
-		crictlYamlPath = "/etc/crictl.yaml"
-	)
-	t, err := template.New("crictlYaml").Parse(crictlYamlTmpl)
-	if err != nil {
-		return err
-	}
-	opts := struct {
-		RuntimeEndpoint string
-		ImageEndpoint   string
-	}{
-		RuntimeEndpoint: r.SocketPath(),
-		ImageEndpoint:   r.SocketPath(),
-	}
-	var crictlYamlBuf bytes.Buffer
-	if err := t.Execute(&crictlYamlBuf, opts); err != nil {
-		return err
-	}
-	return r.Runner.Run(fmt.Sprintf("sudo mkdir -p %s && printf %%s \"%s\" | sudo tee %s",
-		path.Dir(crictlYamlPath), crictlYamlBuf.String(), crictlYamlPath))
-}
-
 // Enable idempotently enables CRIO on a host
 func (r *CRIO) Enable() error {
 	if err := disableOthers(r, r.Runner); err != nil {
 		glog.Warningf("disableOthers: %v", err)
 	}
-	if err := r.createConfigFile(); err != nil {
+	if err := populateCRIConfig(r.Runner, r.SocketPath()); err != nil {
 		return err
 	}
 	if err := enableIPForwarding(r.Runner); err != nil {

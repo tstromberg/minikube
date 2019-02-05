@@ -41,10 +41,14 @@ func (r *Containerd) Enable() error {
 	if err := disableOthers(r, r.Runner); err != nil {
 		glog.Warningf("disableOthers: %v", err)
 	}
+	if err := populateCRIConfig(r.Runner, r.SocketPath()); err != nil {
+		return err
+	}
 	if err := enableIPForwarding(r.Runner); err != nil {
 		return err
 	}
-	return r.Runner.Run("sudo systemctl start containerd")
+	// Oherwise, containerd will fail API requests with 'Unimplemented'
+	return r.Runner.Run("sudo systemctl restart containerd")
 }
 
 // Disable idempotently disables containerd on a host
