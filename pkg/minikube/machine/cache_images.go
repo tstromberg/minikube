@@ -212,16 +212,16 @@ func LoadFromCacheBlocking(cr bootstrapper.CommandRunner, k8s config.KubernetesC
 		return errors.Wrap(err, "transferring cached image")
 	}
 
-	r, err := cruntime.New(cruntime.Config{Type: k8s.ContainerRuntime})
+	r, err := cruntime.New(cruntime.Config{Type: k8s.ContainerRuntime, Runner: cr})
 	if err != nil {
 		return errors.Wrap(err, "runtime")
 	}
 	loadImageLock.Lock()
 	defer loadImageLock.Unlock()
 
-	err = r.LoadImage(cr, dst)
+	err = r.LoadImage(dst)
 	if err != nil {
-		return errors.Wrapf(err, "%s load %s", r.Name, dst)
+		return errors.Wrapf(err, "%s load %s", r.Name(), dst)
 	}
 	loadImageLock.Unlock()
 

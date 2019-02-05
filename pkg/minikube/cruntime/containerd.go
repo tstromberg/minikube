@@ -2,14 +2,14 @@ package cruntime
 
 import (
 	"fmt"
-	"os/exec"
 
 	"github.com/golang/glog"
 )
 
 // Containerd contains containerd runtime state
 type Containerd struct {
-	config Config
+	Socket string
+	Runner CommandRunner
 }
 
 // Name is a human readable name for containerd
@@ -19,39 +19,41 @@ func (r *Containerd) Name() string {
 
 // SocketPath returns the path to the socket file for containerd
 func (r *Containerd) SocketPath() string {
+	if r.Socket != "" {
+		return r.Socket
+	}
 	return "/run/containerd/containerd.sock"
 }
 
 // Active returns if containerd is active on the host
-func (r *Containerd) Active(cr CommandRunner) bool {
-	err := cr.Run("systemctl is-active --quiet service containerd")
+func (r *Containerd) Active() bool {
+	err := r.Runner.Run("systemctl is-active --quiet service containerd")
 	return err == nil
 }
 
 // Available returns an error if it is not possible to use this runtime on a host
-func (r *Containerd) Available(CommandRunner) error {
-	_, err := exec.LookPath("containerd")
-	return err
+func (r *Containerd) Available() error {
+	return r.Runner.Run("command -v crio")
 }
 
 // Enable idempotently enables containerd on a host
-func (r *Containerd) Enable(cr CommandRunner) error {
-	if err := disableOthers(r, cr); err != nil {
+func (r *Containerd) Enable() error {
+	if err := disableOthers(r, r.Runner); err != nil {
 		glog.Warningf("disableOthers: %v", err)
 	}
-	if err := enableIPForwarding(cr); err != nil {
+	if err := enableIPForwarding(r.Runner); err != nil {
 		return err
 	}
-	return cr.Run("sudo systemctl start containerd")
+	return r.Runner.Run("sudo systemctl start containerd")
 }
 
 // Disable idempotently disables containerd on a host
-func (r *Containerd) Disable(cr CommandRunner) error {
-	return cr.Run("sudo systemctl stop containerd")
+func (r *Containerd) Disable() error {
+	return r.Runner.Run("sudo systemctl stop containerd")
 }
 
 // LoadImage loads an image into this runtime
-func (r *Containerd) LoadImage(cr CommandRunner, path string) error {
+func (r *Containerd) LoadImage(path string) error {
 	return nil
 }
 
@@ -66,16 +68,16 @@ func (r *Containerd) KubeletOptions() map[string]string {
 }
 
 // ListContainers returns a list of managed by this container runtime
-func (r *Containerd) ListContainers(cr CommandRunner, filter string) ([]string, error) {
-	return listCRIContainers(cr, filter)
+func (r *Containerd) ListContainers(filter string) ([]string, error) {
+	return listCRIContainers(r.Runner, filter)
 }
 
 // KillContainers removes containers based on ID
-func (r *Containerd) KillContainers(cr CommandRunner, ids []string) error {
-	return killCRIContainers(cr, ids)
+func (r *Containerd) KillContainers(ids []string) error {
+	return killCRIContainers(r.Runner, ids)
 }
 
 // StopContainers stops containers based on ID
-func (r *Containerd) StopContainers(cr CommandRunner, ids []string) error {
-	return stopCRIContainers(cr, ids)
+func (r *Containerd) StopContainers(ids []string) error {
+	return stopCRIContainers(r.Runner, ids)
 }

@@ -10,7 +10,8 @@ import (
 
 // Docker contains Docker runtime state
 type Docker struct {
-	config Config
+	Socket string
+	Runner CommandRunner
 }
 
 // Name is a human readable name for Docker
@@ -20,37 +21,37 @@ func (r *Docker) Name() string {
 
 // SocketPath returns the path to the socket file for Docker
 func (r *Docker) SocketPath() string {
-	return ""
+	return r.Socket
 }
 
 // Available returns an error if it is not possible to use this runtime on a host
-func (r *Docker) Available(CommandRunner) error {
+func (r *Docker) Available() error {
 	_, err := exec.LookPath("docker")
 	return err
 }
 
 // Active returns if docker is active on the host
-func (r *Docker) Active(cr CommandRunner) bool {
-	err := cr.Run("systemctl is-active --quiet service docker")
+func (r *Docker) Active() bool {
+	err := r.Runner.Run("systemctl is-active --quiet service docker")
 	return err == nil
 }
 
 // Enable idempotently enables Docker on a host
-func (r *Docker) Enable(cr CommandRunner) error {
-	if err := disableOthers(r, cr); err != nil {
+func (r *Docker) Enable() error {
+	if err := disableOthers(r, r.Runner); err != nil {
 		glog.Warningf("disableOthers: %v", err)
 	}
-	return cr.Run("sudo systemctl restart docker")
+	return r.Runner.Run("sudo systemctl restart docker")
 }
 
 // Disable idempotently disables Docker on a host
-func (r *Docker) Disable(cr CommandRunner) error {
-	return cr.Run("sudo systemctl stop docker docker.socket")
+func (r *Docker) Disable() error {
+	return r.Runner.Run("sudo systemctl stop docker docker.socket")
 }
 
 // LoadImage loads an image into this runtime
-func (r *Docker) LoadImage(cr CommandRunner, path string) error {
-	return cr.Run(fmt.Sprintf("docker load -i %s", path))
+func (r *Docker) LoadImage(path string) error {
+	return r.Runner.Run(fmt.Sprintf("docker load -i %s", path))
 }
 
 // KubeletOptions returns kubelet options for a runtime.
@@ -61,8 +62,8 @@ func (r *Docker) KubeletOptions() map[string]string {
 }
 
 // Containers returns a list of containers
-func (r *Docker) ListContainers(cr CommandRunner, filter string) ([]string, error) {
-	content, err := cr.CombinedOutput(fmt.Sprintf(`docker ps -a --filter="name=%s" --format="{{.ID}}"`, filter))
+func (r *Docker) ListContainers(filter string) ([]string, error) {
+	content, err := r.Runner.CombinedOutput(fmt.Sprintf(`docker ps -a --filter="name=%s" --format="{{.ID}}"`, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -70,11 +71,11 @@ func (r *Docker) ListContainers(cr CommandRunner, filter string) ([]string, erro
 }
 
 // KillPod removes a running pod based on ID
-func (r *Docker) KillContainers(cr CommandRunner, ids []string) error {
-	return cr.Run(fmt.Sprintf("docker rm %s", strings.Join(ids, " ")))
+func (r *Docker) KillContainers(ids []string) error {
+	return r.Runner.Run(fmt.Sprintf("docker rm %s", strings.Join(ids, " ")))
 }
 
 // StopPod stops a running pod based on ID
-func (r *Docker) StopContainers(cr CommandRunner, ids []string) error {
-	return cr.Run(fmt.Sprintf("docker stop %s", strings.Join(ids, " ")))
+func (r *Docker) StopContainers(ids []string) error {
+	return r.Runner.Run(fmt.Sprintf("docker stop %s", strings.Join(ids, " ")))
 }

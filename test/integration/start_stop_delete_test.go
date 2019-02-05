@@ -32,7 +32,7 @@ func TestStartStop(t *testing.T) {
 	tests := []struct {
 		runtime string
 	}{
-		{runtime: ""},
+		{runtime: "docker"},
 		{runtime: "containerd"},
 		{runtime: "crio"},
 	}

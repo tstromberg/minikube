@@ -174,12 +174,12 @@ func TestDisable(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.runtime, func(t *testing.T) {
-			r, err := New(Config{Type: tc.runtime})
+			runner := &fakeHost{services: defaultServices}
+			r, err := New(Config{Type: tc.runtime, Runner: runner})
 			if err != nil {
 				t.Fatalf("New(%s): %v", tc.runtime, err)
 			}
-			runner := &fakeHost{services: defaultServices}
-			err = r.Disable(runner)
+			err = r.Disable()
 			if err != nil {
 				t.Errorf("%s disable unexpected error: %v", tc.runtime, err)
 			}
@@ -219,12 +219,12 @@ func TestEnable(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.runtime, func(t *testing.T) {
-			r, err := New(Config{Type: tc.runtime})
+			runner := &fakeHost{services: defaultServices}
+			r, err := New(Config{Type: tc.runtime, Runner: runner})
 			if err != nil {
 				t.Fatalf("New(%s): %v", tc.runtime, err)
 			}
-			runner := &fakeHost{services: defaultServices}
-			err = r.Enable(runner)
+			err = r.Enable()
 			if err != nil {
 				t.Errorf("%s disable unexpected error: %v", tc.runtime, err)
 			}

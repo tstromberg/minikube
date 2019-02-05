@@ -306,16 +306,17 @@ func runStart(cmd *cobra.Command, args []string) {
 		cmdutil.MaybeReportErrorAndExit(err)
 	}
 
-	r, err := cruntime.New(cruntime.Config{Type: selectedContainerRuntime})
-	if err != nil {
-		cmdutil.MaybeReportErrorAndExit(err)
-	}
-	fmt.Printf("Configuring %s runtime...\n", r.Name())
 	runner, err := machine.CommandRunner(host)
 	if err != nil {
 		cmdutil.MaybeReportErrorAndExit(err)
 	}
-	err = r.Enable(runner)
+
+	cr, err := cruntime.New(cruntime.Config{Type: selectedContainerRuntime, Runner: runner})
+	if err != nil {
+		cmdutil.MaybeReportErrorAndExit(err)
+	}
+	fmt.Printf("Configuring %s runtime...\n", cr.Name())
+	err = cr.Enable()
 	if err != nil {
 		cmdutil.MaybeReportErrorAndExit(err)
 	}

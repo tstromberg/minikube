@@ -55,12 +55,13 @@ type Driver struct {
 type Config struct {
 	MachineName      string
 	StorePath        string
-	ContainerRuntime cruntime.Manager
+	ContainerRuntime string
 }
 
 // NewDriver returns a fully configured None driver
 func NewDriver(c Config) *Driver {
-	runtime, err := cruntime.New(c.ContainerRuntime)
+	runner := &bootstrapper.ExecRunner{}
+	runtime, err := cruntime.New(cruntime.Config{Type: c.ContainerRuntime, Runner: runner})
 	// Libraries shouldn't panic, but there is no way for drivers to return error :(
 	if err != nil {
 		glog.Fatalf("unable to create container runtime: %v", err)
@@ -70,14 +71,14 @@ func NewDriver(c Config) *Driver {
 			MachineName: c.MachineName,
 			StorePath:   c.StorePath,
 		},
-		runtime: c.ContainerRuntime,
-		exec:    &bootstrapper.ExecRunner{},
+		runtime: runtime,
+		exec:    runner,
 	}
 }
 
 // PreCreateCheck checks for correct privileges and dependencies
 func (d *Driver) PreCreateCheck() error {
-	return d.runtime.Available(d.exec)
+	return d.runtime.Available()
 }
 
 func (d *Driver) Create() error {
@@ -130,12 +131,14 @@ func (d *Driver) GetState() (state.State, error) {
 
 // Kill stops a host forcefully, including any containers that we are managing.
 func (d *Driver) Kill() error {
-	return stopKubelet(d.exec)
-	containers, err := d.runtime.ListContainers(d.exec, cruntime.MinikubeContainerPrefix)
+	if err := stopKubelet(d.exec); err != nil {
+		return errors.Wrap(err, "kubelet")
+	}
+	containers, err := d.runtime.ListContainers(cruntime.MinikubeContainerPrefix)
 	if err != nil {
 		return errors.Wrap(err, "containers")
 	}
-	if err := d.runtime.KillContainers(d.exec, containers); err != nil {
+	if err := d.runtime.KillContainers(containers); err != nil {
 		return errors.Wrap(err, "kill")
 	}
 	return nil
@@ -144,7 +147,7 @@ func (d *Driver) Kill() error {
 // Remove a host, including any data which may have been written by it.
 func (d *Driver) Remove() error {
 	if err := d.Kill(); err != nil {
-		return err
+		return errors.Wrap(err, "kill")
 	}
 
 	cmd := fmt.Sprintf("sudo rm -rf %s", strings.Join(cleanupPaths, " "))
@@ -178,7 +181,7 @@ func (d *Driver) Stop() error {
 	if err := stopKubelet(d.exec); err != nil {
 		return err
 	}
-	containers, err := d.runtime.Containers(cruntime.MinikubeContainerPrefix)
+	containers, err := d.runtime.ListContainers(cruntime.MinikubeContainerPrefix)
 	if err != nil {
 		return errors.Wrap(err, "containers")
 	}

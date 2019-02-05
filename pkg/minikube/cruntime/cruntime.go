@@ -21,13 +21,13 @@ type Manager interface {
 	// Name is a human readable name for a runtime
 	Name() string
 	// Enable idempotently enables this runtime on a host
-	Enable(CommandRunner) error
+	Enable() error
 	// Disable idempotently disables this runtime on a host
-	Disable(CommandRunner) error
+	Disable() error
 	// Active returns whether or not a runtime is active on a host
-	Active(CommandRunner) bool
+	Active() bool
 	// Available returns an error if it is not possible to use this runtime on a host
-	Available(CommandRunner) error
+	Available() error
 
 	// KubeletOptions returns kubelet options for a runtime.
 	KubeletOptions() map[string]string
@@ -35,14 +35,14 @@ type Manager interface {
 	SocketPath() string
 
 	// Load an image idempotently into the runtime on a host
-	LoadImage(CommandRunner, string) error
+	LoadImage(string) error
 
 	// ListContainers returns a list of managed by this container runtime
-	ListContainers(CommandRunner, string) ([]string, error)
+	ListContainers(string) ([]string, error)
 	// KillContainers removes containers based on ID
-	KillContainers(CommandRunner, []string) error
+	KillContainers([]string) error
 	// StopContainers stops containers based on ID
-	StopContainers(CommandRunner, []string) error
+	StopContainers([]string) error
 }
 
 // Config is runtime configuration
@@ -51,17 +51,19 @@ type Config struct {
 	Type string
 	// Custom path to a socket file
 	Socket string
+	// Runner is the CommandRunner object to execute commands with
+	Runner CommandRunner
 }
 
 // New returns an appropriately configured runtime
 func New(c Config) (Manager, error) {
 	switch c.Type {
 	case "", "docker":
-		return &Docker{config: c}, nil
+		return &Docker{Socket: c.Socket, Runner: c.Runner}, nil
 	case "crio", "cri-o":
-		return &CRIO{config: c}, nil
+		return &CRIO{Socket: c.Socket, Runner: c.Runner}, nil
 	case "containerd":
-		return &Containerd{config: c}, nil
+		return &Containerd{Socket: c.Socket, Runner: c.Runner}, nil
 	default:
 		return nil, fmt.Errorf("unknown runtime type: %q", c.Type)
 	}
@@ -70,9 +72,9 @@ func New(c Config) (Manager, error) {
 // disableOthers disables all other runtimes except for me.
 func disableOthers(me Manager, cr CommandRunner) error {
 	// valid values returned by manager.Name()
-	runtimes := []string{"containerd", "crio", "docker", "rkt"}
+	runtimes := []string{"containerd", "crio", "docker"}
 	for _, name := range runtimes {
-		r, err := New(Config{Type: name})
+		r, err := New(Config{Type: name, Runner: cr})
 		if err != nil {
 			return fmt.Errorf("runtime(%s): %v", name, err)
 		}
@@ -82,14 +84,14 @@ func disableOthers(me Manager, cr CommandRunner) error {
 			continue
 		}
 		// runtime is already disabled, nothing to do.
-		if !r.Active(cr) {
+		if !r.Active() {
 			continue
 		}
-		if err = r.Disable(cr); err != nil {
+		if err = r.Disable(); err != nil {
 			glog.Warningf("disable failed: %v", err)
 		}
 		// Validate that the runtime really is offline - and that Active & Disable are properly written.
-		if r.Active(cr) {
+		if r.Active() {
 			return fmt.Errorf("%s is still active", r.Name())
 		}
 	}
