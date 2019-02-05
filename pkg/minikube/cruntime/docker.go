@@ -61,7 +61,7 @@ func (r *Docker) KubeletOptions() map[string]string {
 	}
 }
 
-// Containers returns a list of containers
+// ListContainers returns a list of containers
 func (r *Docker) ListContainers(filter string) ([]string, error) {
 	content, err := r.Runner.CombinedOutput(fmt.Sprintf(`docker ps -a --filter="name=%s" --format="{{.ID}}"`, filter))
 	if err != nil {
@@ -70,12 +70,12 @@ func (r *Docker) ListContainers(filter string) ([]string, error) {
 	return strings.Split(content, "\n"), nil
 }
 
-// KillPod removes a running pod based on ID
+// KillContainers forcibly removes a running pod based on ID
 func (r *Docker) KillContainers(ids []string) error {
-	return r.Runner.Run(fmt.Sprintf("docker rm %s", strings.Join(ids, " ")))
+	return r.Runner.Run(fmt.Sprintf("docker rm -f %s", strings.Join(ids, " ")))
 }
 
-// StopPod stops a running pod based on ID
+// StopContainers stops a running pod based on ID
 func (r *Docker) StopContainers(ids []string) error {
 	return r.Runner.Run(fmt.Sprintf("docker stop %s", strings.Join(ids, " ")))
 }

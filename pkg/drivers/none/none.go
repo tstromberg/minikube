@@ -138,6 +138,10 @@ func (d *Driver) Kill() error {
 	if err != nil {
 		return errors.Wrap(err, "containers")
 	}
+	// Try to be graceful before sending SIGKILL everywhere.
+	if err := d.runtime.StopContainers(containers); err != nil {
+		return errors.Wrap(err, "stop")
+	}
 	if err := d.runtime.KillContainers(containers); err != nil {
 		return errors.Wrap(err, "kill")
 	}
@@ -149,7 +153,7 @@ func (d *Driver) Remove() error {
 	if err := d.Kill(); err != nil {
 		return errors.Wrap(err, "kill")
 	}
-
+	// TODO(tstromberg): Make sure this calls into the bootstrapper to perform `kubeadm reset`
 	cmd := fmt.Sprintf("sudo rm -rf %s", strings.Join(cleanupPaths, " "))
 	if err := d.exec.Run(cmd); err != nil {
 		glog.Errorf("cleanup incomplete: %v", err)
@@ -199,13 +203,13 @@ func (d *Driver) RunSSHCommandFromDriver() error {
 // stopKubelet idempotently stops the kubelet
 func stopKubelet(exec bootstrapper.CommandRunner) error {
 	glog.Infof("stopping kubelet.service ...")
-	return exec.Run("sudo systemctl stop %s kubelet.service")
+	return exec.Run("sudo systemctl stop kubelet.service")
 }
 
 // restartKubelet restarts the kubelet
 func restartKubelet(exec bootstrapper.CommandRunner) error {
 	glog.Infof("restarting kubelet.service ...")
-	return exec.Run("sudo systemctl restart --wait kubelet.service")
+	return exec.Run("sudo systemctl restart kubelet.service")
 }
 
 // runningKubelet returns an error if the kubelet is not running.
