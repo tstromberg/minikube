@@ -72,22 +72,34 @@ type serviceState int
 const (
 	Exited serviceState = iota
 	Running
+	Restarted
 )
 
-// fakeHost is a command runner that isn't very smart.
-type fakeHost struct {
+// FakeRunner is a command runner that isn't very smart.
+type FakeRunner struct {
 	cmds     []string
 	services map[string]serviceState
+	t        *testing.T
+}
+
+// NewFakeRunner returns a CommandRunner which emulates a systemd host
+func NewFakeRunner(t *testing.T) *FakeRunner {
+	return &FakeRunner{
+		services: map[string]serviceState{},
+		cmds:     []string{},
+		t:        t,
+	}
 }
 
 // Run a fake command!
-func (f *fakeHost) CombinedOutput(cmd string) (string, error) {
+func (f *FakeRunner) CombinedOutput(cmd string) (string, error) {
 	f.cmds = append(f.cmds, cmd)
 	out := ""
 
 	root := false
 	args := strings.Split(cmd, " ")
 	bin, args := args[0], args[1:]
+	f.t.Logf("bin=%s args=%v", bin, args)
 	if bin == "sudo" {
 		root = true
 		bin, args = args[0], args[1:]
@@ -102,18 +114,18 @@ func (f *fakeHost) CombinedOutput(cmd string) (string, error) {
 }
 
 // Run a fake command!
-func (f *fakeHost) Run(cmd string) error {
+func (f *FakeRunner) Run(cmd string) error {
 	_, err := f.CombinedOutput(cmd)
 	return err
 }
 
 // docker is a fake implementation of docker
-func (f *fakeHost) docker(args []string, root bool) (string, error) {
+func (f *FakeRunner) docker(args []string, root bool) (string, error) {
 	return "", nil
 }
 
 // systemctl is a fake implementation of systemctl
-func (f *fakeHost) systemctl(args []string, root bool) (string, error) {
+func (f *FakeRunner) systemctl(args []string, root bool) (string, error) {
 	action := args[0]
 	svcs := args[1:]
 	out := ""
@@ -137,12 +149,21 @@ func (f *fakeHost) systemctl(args []string, root bool) (string, error) {
 				return out, fmt.Errorf("not root")
 			}
 			f.services[svc] = Exited
-		case "start", "restart":
+			f.t.Logf("stopped %s", svc)
+		case "start":
 			if !root {
 				return out, fmt.Errorf("not root")
 			}
 			f.services[svc] = Running
+			f.t.Logf("started %s", svc)
+		case "restart":
+			if !root {
+				return out, fmt.Errorf("not root")
+			}
+			f.services[svc] = Restarted
+			f.t.Logf("restarted %s", svc)
 		case "is-active":
+			f.t.Logf("%s is-status: %v", svc, state)
 			if state == Running {
 				return out, nil
 			}
@@ -174,12 +195,15 @@ func TestDisable(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.runtime, func(t *testing.T) {
-			runner := &fakeHost{services: defaultServices}
-			r, err := New(Config{Type: tc.runtime, Runner: runner})
+			runner := NewFakeRunner(t)
+			for k, v := range defaultServices {
+				runner.services[k] = v
+			}
+			cr, err := New(Config{Type: tc.runtime, Runner: runner})
 			if err != nil {
 				t.Fatalf("New(%s): %v", tc.runtime, err)
 			}
-			err = r.Disable()
+			err = cr.Disable()
 			if err != nil {
 				t.Errorf("%s disable unexpected error: %v", tc.runtime, err)
 			}
@@ -196,7 +220,7 @@ func TestEnable(t *testing.T) {
 		want    map[string]serviceState
 	}{
 		{"docker", map[string]serviceState{
-			"docker":        Running,
+			"docker":        Restarted,
 			"docker.socket": Running,
 			"containerd":    Exited,
 			"crio":          Exited,
@@ -205,7 +229,7 @@ func TestEnable(t *testing.T) {
 		{"containerd", map[string]serviceState{
 			"docker":        Exited,
 			"docker.socket": Exited,
-			"containerd":    Running,
+			"containerd":    Restarted,
 			"crio":          Exited,
 			"crio-shutdown": Exited,
 		}},
@@ -213,18 +237,21 @@ func TestEnable(t *testing.T) {
 			"docker":        Exited,
 			"docker.socket": Exited,
 			"containerd":    Exited,
-			"crio":          Running,
+			"crio":          Restarted,
 			"crio-shutdown": Exited,
 		}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.runtime, func(t *testing.T) {
-			runner := &fakeHost{services: defaultServices}
-			r, err := New(Config{Type: tc.runtime, Runner: runner})
+			runner := NewFakeRunner(t)
+			for k, v := range defaultServices {
+				runner.services[k] = v
+			}
+			cr, err := New(Config{Type: tc.runtime, Runner: runner})
 			if err != nil {
 				t.Fatalf("New(%s): %v", tc.runtime, err)
 			}
-			err = r.Enable()
+			err = cr.Enable()
 			if err != nil {
 				t.Errorf("%s disable unexpected error: %v", tc.runtime, err)
 			}

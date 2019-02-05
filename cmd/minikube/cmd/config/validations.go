@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/go-units"
+	units "github.com/docker/go-units"
 	"github.com/pkg/errors"
 	"k8s.io/minikube/pkg/minikube/assets"
 	"k8s.io/minikube/pkg/minikube/config"
@@ -141,7 +141,7 @@ func IsContainerdRuntime(_, _ string) error {
 	}
 	_, ok := r.(*cruntime.Containerd)
 	if !ok {
-		fmt.Errorf(`This addon can only be enabled with the containerd runtime backend.
+		return fmt.Errorf(`This addon can only be enabled with the containerd runtime backend.
 
 To enable this backend, please first stop minikube with:
 

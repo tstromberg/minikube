@@ -99,7 +99,7 @@ func SetBool(m config.MinikubeConfig, name string, val string) error {
 func EnableOrDisableAddon(name string, val string) error {
 	enable, err := strconv.ParseBool(val)
 	if err != nil {
-		errors.Wrapf(err, "parsing bool: %s", name)
+		return errors.Wrapf(err, "parsing bool: %s", name)
 	}
 
 	//TODO(r2d4): config package should not reference API, pull this out
@@ -111,10 +111,7 @@ func EnableOrDisableAddon(name string, val string) error {
 	defer api.Close()
 	cluster.EnsureMinikubeRunningOrExit(api, 0)
 
-	addon, _ := assets.Addons[name] // validation done prior
-	if err != nil {
-		return err
-	}
+	addon := assets.Addons[name]
 	host, err := cluster.CheckIfHostExistsAndLoad(api, config.GetMachineName())
 	if err != nil {
 		return errors.Wrap(err, "getting host")
