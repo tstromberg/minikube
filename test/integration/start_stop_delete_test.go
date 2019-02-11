@@ -25,65 +25,52 @@ import (
 	"time"
 
 	"github.com/docker/machine/libmachine/state"
-	"k8s.io/minikube/pkg/minikube/constants"
 	"k8s.io/minikube/test/integration/util"
 )
 
 func TestStartStop(t *testing.T) {
 	tests := []struct {
-		name    string
-		runtime string
+		name string
+		args []string
 	}{
-		{
-			name:    "default",
-			runtime: "",
-		},
-		{
-			name:    "containerd",
-			runtime: constants.ContainerdRuntime,
-		},
-		{
-			name:    "crio",
-			runtime: constants.CrioRuntime,
-		},
-		// TODO(tstromberg): Add test for crio w/o cni
+		{"docker+cache", []string{"--container-runtime=docker", "--cache-images"}},
+		{"containerd+cache", []string{"--container-runtime=containerd", "--network-plugin=cni", "--enable-default-cni", "--docker-opt containerd=/var/run/containerd/containerd.sock", "--cache-images"}},
+		{"crio+cache", []string{"--container-runtime=crio", "--network-plugin=cni", "--enable-default-cni", "--cache-images"}},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			runner := NewMinikubeRunner(t)
-			if test.runtime != "" && usingNoneDriver(runner) {
-				t.Skipf("skipping, can't use %s with none driver", test.runtime)
+			r := NewMinikubeRunner(t)
+			if !strings.Contains(test.name, "docker") && usingNoneDriver(r) {
+				t.Skipf("skipping %s - incompatible with none driver", test.name)
 			}
 
-			runner.RunCommand("config set WantReportErrorPrompt false", true)
-			runner.RunCommand("delete", false)
-			runner.CheckStatus(state.None.String())
+			r.RunCommand("config set WantReportErrorPrompt false", true)
+			r.RunCommand("delete", false)
+			r.CheckStatus(state.None.String())
+			r.Start(test.args...)
+			r.CheckStatus(state.Running.String())
 
-			runner.SetRuntime(test.runtime)
-			runner.Start()
-			runner.CheckStatus(state.Running.String())
-
-			ip := runner.RunCommand("ip", true)
+			ip := r.RunCommand("ip", true)
 			ip = strings.TrimRight(ip, "\n")
 			if net.ParseIP(ip) == nil {
 				t.Fatalf("IP command returned an invalid address: %s", ip)
 			}
 
 			checkStop := func() error {
-				runner.RunCommand("stop", true)
-				return runner.CheckStatusNoFail(state.Stopped.String())
+				r.RunCommand("stop", true)
+				return r.CheckStatusNoFail(state.Stopped.String())
 			}
 
 			if err := util.Retry(t, checkStop, 5*time.Second, 6); err != nil {
 				t.Fatalf("timed out while checking stopped status: %v", err)
 			}
 
-			runner.Start()
-			runner.CheckStatus(state.Running.String())
+			r.Start()
+			r.CheckStatus(state.Running.String())
 
-			runner.RunCommand("delete", true)
-			runner.CheckStatus(state.None.String())
+			r.RunCommand("delete", true)
+			r.CheckStatus(state.None.String())
 		})
 	}
 }

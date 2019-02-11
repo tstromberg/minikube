@@ -1,4 +1,4 @@
-// +build linux
+// +build darwin
 
 /*
 Copyright 2018 The Kubernetes Authors All rights reserved.
@@ -16,11 +16,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package none
+package parallels
 
 import (
+	parallels "github.com/Parallels/docker-machine-parallels"
 	"github.com/docker/machine/libmachine/drivers"
-	"k8s.io/minikube/pkg/drivers/none"
 	cfg "k8s.io/minikube/pkg/minikube/config"
 	"k8s.io/minikube/pkg/minikube/constants"
 	"k8s.io/minikube/pkg/minikube/registry"
@@ -28,20 +28,21 @@ import (
 
 func init() {
 	registry.Register(registry.DriverDef{
-		Name:          "none",
+		Name:          "parallels",
 		Builtin:       true,
-		ConfigCreator: createNoneHost,
+		ConfigCreator: createParallelsHost,
 		DriverCreator: func() drivers.Driver {
-			return none.NewDriver(none.Config{})
+			return parallels.NewDriver("", "")
 		},
 	})
 }
 
-// createNoneHost creates a none Driver from a MachineConfig
-func createNoneHost(config cfg.MachineConfig) interface{} {
-	return none.NewDriver(none.Config{
-		MachineName:      cfg.GetMachineName(),
-		StorePath:        constants.GetMinipath(),
-		ContainerRuntime: config.ContainerRuntime,
-	})
+func createParallelsHost(config cfg.MachineConfig) interface{} {
+	d := parallels.NewDriver(cfg.GetMachineName(), constants.GetMinipath()).(*parallels.Driver)
+	d.Boot2DockerURL = config.Downloader.GetISOFileURI(config.MinikubeISO)
+	d.Memory = config.Memory
+	d.CPU = config.CPUs
+	d.DiskSize = config.DiskSize
+	d.ISO = d.ResolveStorePath("boot2docker.iso")
+	return d
 }
