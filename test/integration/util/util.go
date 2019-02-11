@@ -34,7 +34,6 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/minikube/pkg/minikube/assets"
-	"k8s.io/minikube/pkg/minikube/constants"
 	commonutil "k8s.io/minikube/pkg/util"
 )
 
@@ -203,17 +202,9 @@ func (m *MinikubeRunner) SSH(command string) (string, error) {
 	return string(stdout), nil
 }
 
-func (m *MinikubeRunner) Start() {
-	opts := ""
-	// TODO(tstromberg): Deprecate this in favor of making it possible for tests to define explicit flags.
-	switch r := m.Runtime; r {
-	case constants.ContainerdRuntime:
-		opts = "--container-runtime=containerd --network-plugin=cni --enable-default-cni --docker-opt containerd=/var/run/containerd/containerd.sock"
-	case constants.CrioRuntime:
-		opts = "--container-runtime=crio --network-plugin=cni --enable-default-cni"
-	}
-	m.RunCommand(fmt.Sprintf("start %s %s %s --alsologtostderr --v=5", m.StartArgs, m.Args, opts), true)
-
+func (m *MinikubeRunner) Start(opts ...string) {
+	cmd := fmt.Sprintf("start %s %s %s --alsologtostderr --v=2", m.StartArgs, m.Args, strings.Join(opts, " "))
+	m.RunCommand(cmd, true)
 }
 
 func (m *MinikubeRunner) EnsureRunning() {
