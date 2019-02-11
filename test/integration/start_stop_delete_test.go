@@ -34,8 +34,8 @@ func TestStartStop(t *testing.T) {
 		args []string
 	}{
 		{"docker+cache", []string{"--container-runtime=docker", "--cache-images"}},
-		{"containerd+cache", []string{"--container-runtime=containerd", "--network-plugin=cni", "--enable-default-cni", "--docker-opt containerd=/var/run/containerd/containerd.sock", "--cache-images"}},
-		{"crio+cache", []string{"--container-runtime=crio", "--network-plugin=cni", "--enable-default-cni", "--cache-images"}},
+		{"containerd+cache", []string{"--container-runtime=containerd", "--docker-opt containerd=/var/run/containerd/containerd.sock", "--cache-images"}},
+		{"crio+cache", []string{"--container-runtime=crio", "--cache-images"}},
 	}
 
 	for _, test := range tests {

@@ -40,6 +40,11 @@ func (r *Docker) SocketPath() string {
 	return r.Socket
 }
 
+// DefaultCNI returns whether to use CNI networking by default
+func (r *Docker) DefaultCNI() bool {
+	return false
+}
+
 // Available returns an error if it is not possible to use this runtime on a host
 func (r *Docker) Available() error {
 	_, err := exec.LookPath("docker")
@@ -68,7 +73,7 @@ func (r *Docker) Disable() error {
 // LoadImage loads an image into this runtime
 func (r *Docker) LoadImage(path string) error {
 	glog.Infof("Loading image: %s", path)
-	return r.Runner.Run(fmt.Sprintf("docker load -i %s", path))
+	return r.Runner.Run(fmt.Sprintf("sudo docker load -i %s", path))
 }
 
 // KubeletOptions returns kubelet options for a runtime.
