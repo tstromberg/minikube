@@ -69,7 +69,7 @@ func (m *MinikubeRunner) Copy(f assets.CopyableFile) error {
 	return cmd.Run()
 }
 
-func (m *MinikubeRunner) CombinedOutput(cmd string) (string, error) {
+func (m *MinikubeRunner).Combined(cmd string) (string, error) {
 	return m.SSH(cmd)
 }
 
@@ -283,7 +283,7 @@ func (k *KubectlRunner) RunCommandParseOutput(args []string, outputObj interface
 func (k *KubectlRunner) RunCommand(args []string) (stdout []byte, err error) {
 	inner := func() error {
 		cmd := exec.Command(k.BinaryPath, args...)
-		stdout, err = cmd.CombinedOutput()
+		stdout, err = cmd.Combined()
 		if err != nil {
 			retriable := &commonutil.RetriableError{Err: fmt.Errorf("error running command %s: %v. Stdout: \n %s", args, err, stdout)}
 			k.T.Log(retriable)

@@ -39,7 +39,7 @@ func TestSetupCerts(t *testing.T) {
 	}
 
 	var filesToBeTransferred []string
-	for _, cert := range certs {
+	for _, cert := range installCerts {
 		filesToBeTransferred = append(filesToBeTransferred, filepath.Join(constants.GetMinipath(), cert))
 	}
 

@@ -62,32 +62,35 @@ var logsCmd = &cobra.Command{
 		if err != nil {
 			exit.WithError("api load", err)
 		}
-		runner, err := machine.CommandRunner(h)
-		if err != nil {
-			exit.WithError("command runner", err)
-		}
 		bs, err := GetClusterBootstrapper(api, viper.GetString(cmdcfg.Bootstrapper))
 		if err != nil {
 			exit.WithError("Error getting cluster bootstrapper", err)
 		}
-
-		cr, err := cruntime.New(cruntime.Config{Type: cfg.KubernetesConfig.ContainerRuntime, Runner: runner})
+		ex, err := machine.Executor(h)
+		if err != nil {
+			exit.WithError("executor", err)
+		}
+		cr, err := cruntime.New(cruntime.Config{Type: cfg.KubernetesConfig.ContainerRuntime, Runner: ex})
 		if err != nil {
 			exit.WithError("Unable to get runtime", err)
 		}
 		if followLogs {
-			err := logs.Follow(cr, bs, runner)
+			waiter, err := logs.Follow(cr, bs, ex)
 			if err != nil {
 				exit.WithError("Follow", err)
+			}
+			err = waiter.Wait()
+			if err != nil {
+				exit.WithError("Wait", err)
 			}
 			return
 		}
 		if showProblems {
-			problems := logs.FindProblems(cr, bs, runner)
+			problems := logs.FindProblems(cr, bs, ex)
 			logs.OutputProblems(problems, numberOfProblems)
 			return
 		}
-		err = logs.Output(cr, bs, runner, numberOfLines)
+		err = logs.Output(cr, bs, ex, numberOfLines)
 		if err != nil {
 			exit.WithError("Error getting machine logs", err)
 		}

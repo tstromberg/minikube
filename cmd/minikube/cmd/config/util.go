@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -109,27 +110,31 @@ func EnableOrDisableAddon(name string, val string) error {
 	defer api.Close()
 	cluster.EnsureMinikubeRunningOrExit(api, 0)
 
-	addon := assets.Addons[name]
 	host, err := cluster.CheckIfHostExistsAndLoad(api, config.GetMachineName())
 	if err != nil {
 		return errors.Wrap(err, "getting host")
 	}
-	cmd, err := machine.CommandRunner(host)
+
+	ex, err := machine.Executor(host)
 	if err != nil {
 		return errors.Wrap(err, "command runner")
 	}
-	if enable {
-		for _, addon := range addon.Assets {
-			if err := cmd.Copy(addon); err != nil {
-				return errors.Wrapf(err, "enabling addon %s", addon.AssetName)
+
+	if !enable {
+		for _, a := range assets.Addons[name].Assets {
+			dst := filepath.Join(a.GetTargetDir(), a.GetTargetName())
+			if err := ex.Run(fmt.Sprintf("rm -f %s", dst)); err != nil {
+				return errors.Wrapf(err, "disable %s", a.AssetName)
 			}
 		}
-	} else {
-		for _, addon := range addon.Assets {
-			if err := cmd.Remove(addon); err != nil {
-				return errors.Wrapf(err, "disabling addon %s", addon.AssetName)
-			}
+		return nil
+	}
+
+	for _, a := range assets.Addons[name].Assets {
+		if err := assets.Install(a, ex); err != nil {
+			return errors.Wrap(err, "Install")
 		}
+
 	}
 	return nil
 }

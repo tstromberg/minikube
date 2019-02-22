@@ -41,7 +41,7 @@ func (router *osRouter) EnsureRouteIsAdded(route *Route) error {
 	glog.Infof("Adding route for CIDR %s to gateway %s", serviceCIDR, gatewayIP)
 	command := exec.Command("sudo", "route", "-n", "add", serviceCIDR, gatewayIP)
 	glog.Infof("About to run command: %s", command.Args)
-	stdInAndOut, err := command.CombinedOutput()
+	stdInAndOut, err := command.Combined()
 	message := fmt.Sprintf("%s", stdInAndOut)
 	re := regexp.MustCompile(fmt.Sprintf("add net (.*): gateway %s\n", gatewayIP))
 	if !re.MatchString(message) {
@@ -55,7 +55,7 @@ func (router *osRouter) EnsureRouteIsAdded(route *Route) error {
 func (router *osRouter) Inspect(route *Route) (exists bool, conflict string, overlaps []string, err error) {
 	cmd := exec.Command("netstat", "-nr", "-f", "inet")
 	cmd.Env = append(cmd.Env, "LC_ALL=C")
-	stdInAndOut, err := cmd.CombinedOutput()
+	stdInAndOut, err := cmd.Combined()
 	if err != nil {
 		err = fmt.Errorf("error running '%v': %s", cmd, err)
 		return
@@ -152,7 +152,7 @@ func (router *osRouter) Cleanup(route *Route) error {
 		return nil
 	}
 	command := exec.Command("sudo", "route", "-n", "delete", route.DestCIDR.String())
-	stdInAndOut, err := command.CombinedOutput()
+	stdInAndOut, err := command.Combined()
 	if err != nil {
 		return err
 	}

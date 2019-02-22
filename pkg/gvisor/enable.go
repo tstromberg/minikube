@@ -207,21 +207,21 @@ func restartContainerd() error {
 	log.Print("Stopping rpc-statd.service...")
 	// first, stop  rpc-statd.service
 	cmd := exec.Command("sudo", "-E", "systemctl", "stop", "rpc-statd.service")
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := cmd.Combined(); err != nil {
 		fmt.Println(string(out))
 		return errors.Wrap(err, "stopping rpc-statd.service")
 	}
 	// restart containerd
 	log.Print("Restarting containerd...")
 	cmd = exec.Command("sudo", "-E", "systemctl", "restart", "containerd")
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := cmd.Combined(); err != nil {
 		log.Print(string(out))
 		return errors.Wrap(err, "restarting containerd")
 	}
 	// start rpc-statd.service
 	log.Print("Starting rpc-statd...")
 	cmd = exec.Command("sudo", "-E", "systemctl", "start", "rpc-statd.service")
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := cmd.Combined(); err != nil {
 		log.Print(string(out))
 		return errors.Wrap(err, "restarting rpc-statd.service")
 	}

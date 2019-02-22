@@ -38,8 +38,7 @@ var addCacheCmd = &cobra.Command{
 	Short: "Add an image to local cache.",
 	Long:  "Add an image to local cache.",
 	Run: func(cmd *cobra.Command, args []string) {
-		// Cache and load images into docker daemon
-		if err := machine.CacheAndLoadImages(args); err != nil {
+		if err := cacheAndLoadImages(args); err != nil {
 			exit.WithError("Failed to cache and load images", err)
 		}
 		// Add images to config file
@@ -77,9 +76,31 @@ func LoadCachedImagesInConfigFile() error {
 		for key := range values.(map[string]interface{}) {
 			images = append(images, key)
 		}
-		return machine.CacheAndLoadImages(images)
+		return cacheAndLoadImages(images)
 	}
 	return nil
+}
+
+// convenience function to cache and load images
+func cacheAndLoadImages(images []string) error {
+	if err := machine.CacheImages(images, constants.ImageCacheDir); err != nil {
+		return err
+	}
+	api, err := machine.NewAPIClient()
+	if err != nil {
+		return err
+	}
+	defer api.Close()
+	h, err := api.Load(config.GetMachineName())
+	if err != nil {
+		return err
+	}
+
+	exec, err := machine.Executor(h)
+	if err != nil {
+		return err
+	}
+	return machine.LoadImages(exec, images, constants.ImageCacheDir)
 }
 
 func init() {

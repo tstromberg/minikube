@@ -33,12 +33,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-	"k8s.io/minikube/pkg/minikube/assets"
 	"k8s.io/minikube/pkg/minikube/bootstrapper"
 	"k8s.io/minikube/pkg/minikube/config"
 	"k8s.io/minikube/pkg/minikube/constants"
 	"k8s.io/minikube/pkg/minikube/cruntime"
-	"k8s.io/minikube/pkg/minikube/sshutil"
+	"k8s.io/minikube/pkg/minikube/rexec"
 )
 
 const tempLoadDir = "/tmp"
@@ -83,7 +82,7 @@ func CacheImages(images []string, cacheDir string) error {
 	return nil
 }
 
-func LoadImages(cmd bootstrapper.CommandRunner, images []string, cacheDir string) error {
+func LoadImages(r rexec.Executor, images []string, cacheDir string) error {
 	var g errgroup.Group
 	// Load profile cluster config from file
 	cc, err := config.Load()
@@ -95,7 +94,7 @@ func LoadImages(cmd bootstrapper.CommandRunner, images []string, cacheDir string
 		g.Go(func() error {
 			src := filepath.Join(cacheDir, image)
 			src = sanitizeCacheDir(src)
-			if err := LoadFromCacheBlocking(cmd, cc.KubernetesConfig, src); err != nil {
+			if err := LoadFromCacheBlocking(r, cc.KubernetesConfig, src); err != nil {
 				return errors.Wrapf(err, "loading image %s", src)
 			}
 			return nil
@@ -106,32 +105,6 @@ func LoadImages(cmd bootstrapper.CommandRunner, images []string, cacheDir string
 	}
 	glog.Infoln("Successfully loaded all cached images.")
 	return nil
-}
-
-func CacheAndLoadImages(images []string) error {
-	if err := CacheImages(images, constants.ImageCacheDir); err != nil {
-		return err
-	}
-	api, err := NewAPIClient()
-	if err != nil {
-		return err
-	}
-	defer api.Close()
-	h, err := api.Load(config.GetMachineName())
-	if err != nil {
-		return err
-	}
-
-	client, err := sshutil.NewSSHClient(h.Driver)
-	if err != nil {
-		return err
-	}
-	cmdRunner, err := bootstrapper.NewSSHRunner(client), nil
-	if err != nil {
-		return err
-	}
-
-	return LoadImages(cmdRunner, images, constants.ImageCacheDir)
 }
 
 // # ParseReference cannot have a : in the directory path
@@ -195,36 +168,27 @@ func getWindowsVolumeNameCmd(d string) (string, error) {
 	return vname, nil
 }
 
-func LoadFromCacheBlocking(cr bootstrapper.CommandRunner, k8s config.KubernetesConfig, src string) error {
+func LoadFromCacheBlocking(r rexec.Executor, k8s config.KubernetesConfig, src string) error {
 	glog.Infoln("Loading image from cache at ", src)
-	filename := filepath.Base(src)
-	for {
-		if _, err := os.Stat(src); err == nil {
-			break
-		}
-	}
-	dst := path.Join(tempLoadDir, filename)
-	f, err := assets.NewFileAsset(src, tempLoadDir, filename, "0777")
-	if err != nil {
-		return errors.Wrapf(err, "creating copyable file asset: %s", filename)
-	}
-	if err := cr.Copy(f); err != nil {
-		return errors.Wrap(err, "transferring cached image")
+
+	dst := path.Join(tempLoadDir, filepath.Base(src))
+	if err := r.Copy(src, dst, os.FileMode(0755)); err != nil {
+		return errors.Wrap(err, "copy")
 	}
 
-	r, err := cruntime.New(cruntime.Config{Type: k8s.ContainerRuntime, Runner: cr})
+	cr, err := cruntime.New(cruntime.Config{Type: k8s.ContainerRuntime, Runner: r})
 	if err != nil {
 		return errors.Wrap(err, "runtime")
 	}
 	loadImageLock.Lock()
 	defer loadImageLock.Unlock()
 
-	err = r.LoadImage(dst)
+	err = cr.LoadImage(dst)
 	if err != nil {
-		return errors.Wrapf(err, "%s load %s", r.Name(), dst)
+		return errors.Wrapf(err, "%s load %s", cr.Name(), dst)
 	}
 
-	if err := cr.Run("sudo rm -rf " + dst); err != nil {
+	if err := r.Run("sudo rm -r " + dst); err != nil {
 		return errors.Wrap(err, "deleting temp docker image location")
 	}
 	glog.Infof("Successfully loaded image %s from cache", src)
