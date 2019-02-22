@@ -1,5 +1,19 @@
 # Minikube Release Notes
 
+# Version 0.34.1 - 2019-02-16
+
+* Make non-zero ssh error codes less dramatic [#3703](https://github.com/kubernetes/minikube/pull/3703)
+* Only call trySSHPowerOff if we are using hyperv [#3702](https://github.com/kubernetes/minikube/pull/3702)
+* Improve reporting when docker host/service is down [#3698](https://github.com/kubernetes/minikube/pull/3698)
+* Use the new ISO version, for features and security [#3699](https://github.com/kubernetes/minikube/pull/3699)
+* Added and unified driver usage instructions. [#3690](https://github.com/kubernetes/minikube/pull/3690)
+
+Thank you to the folks who contributed to this bugfix release:
+
+- Anders F Björklund
+- Joerg Schad
+- Thomas Strömberg
+
 # Version 0.34.0 - 2019-02-15
 
 * Initial implementation of 'console' package for stylized & localized console output 😂 [#3638](https://github.com/kubernetes/minikube/pull/3638)
@@ -33,17 +47,10 @@
 * Remove redundant newline in `minikube status` [#3565](https://github.com/kubernetes/minikube/pull/3565)
 * Fix for issue #3044 - mounted timestamps incorrect with windows host [#3285](https://github.com/kubernetes/minikube/pull/3285)
 
-+ echo 'Huge thank you for this release towards our contributors: '
 Huge thank you for this release towards our contributors:
-+ sort
-+ awk '{printf "- %s\n", $0 }'
-+ uniq
-++ git describe --abbrev=0
-+ git log v0.33.1.. --format=%aN --reverse
 - Abhilash Pallerlamudi
 - Alberto Alvarez
 - Anders Björklund
-- Anders F Björklund
 - Balint Pato
 - Bassam Tabbara
 - Denis Denisov
@@ -53,7 +60,6 @@ Huge thank you for this release towards our contributors:
 - jay vyas
 - Jeff Wu
 - Kauê Doretto Grecchi
-- Kubernetes Prow Robot
 - Leif Ringstad
 - Mark Gibbons
 - Nicholas Goozeff
