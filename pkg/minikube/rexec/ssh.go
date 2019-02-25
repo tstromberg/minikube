@@ -58,7 +58,13 @@ func NewSSH(c sshClient) *SSH {
 
 // Run executes a command
 func (s *SSH) Run(cmd string) error {
-	_, _, err := s.Out(cmd)
+	_, stderr, err := s.Out(cmd)
+	if err != nil {
+		if len(stderr) > 0 {
+			return errors.Wrap(err, fmt.Sprintf("%s: %s", cmd, stderr))
+		}
+		return errors.Wrap(err, cmd)
+	}
 	return err
 }
 
@@ -147,12 +153,12 @@ func (s *SSH) WriteFile(src io.Reader, target string, len int64, perms os.FileMo
 		return nil
 	})
 
-	if err = sess.Run(fmt.Sprintf("sudo scp -qt %s", filepath.Dir(target))); err != nil {
-		return err
+	if err = sess.Run(fmt.Sprintf("sudo scp -t %s", filepath.Dir(target))); err != nil {
+		return errors.Wrap(err, "run")
 	}
 
 	if err = g.Wait(); err != nil {
-		return err
+		return errors.Wrap(err, "wait")
 	}
 
 	return sess.Close()

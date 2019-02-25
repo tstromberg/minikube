@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 
 	"github.com/golang/glog"
@@ -92,12 +93,19 @@ func (l *Local) Copy(src string, target string, perms os.FileMode) error {
 
 // WriteFile writes content to a target path
 func (l *Local) WriteFile(src io.Reader, target string, len int64, perms os.FileMode) error {
-	glog.Infof("Writing %d bytes to %s locally (perm=%s)", len, target, perms)
-	f, err := os.Create(target)
-	if err != nil {
-		return err
+	tdir := filepath.Dir(target)
+	if _, err := os.Stat(tdir); os.IsNotExist(err) {
+		dperm := perms | 0700
+		glog.Infof("Recursively creating %s (perm=%s)", tdir, dperm)
+		err := os.MkdirAll(filepath.Dir(target), perms|0700)
+		if err != nil {
+			glog.Errorf("failed to create directories: %s", err)
+		}
 	}
-	if err := os.Chmod(target, perms); err != nil {
+
+	glog.Infof("Writing %d bytes to %s locally (perm=%s)", len, target, perms)
+	f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perms)
+	if err != nil {
 		return err
 	}
 
