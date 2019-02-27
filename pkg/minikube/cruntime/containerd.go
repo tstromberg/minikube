@@ -79,7 +79,8 @@ func (r *Containerd) Disable() error {
 
 // LoadImage loads an image into this runtime
 func (r *Containerd) LoadImage(path string) error {
-	return pullImageCRI(r.Runner, path)
+	glog.Infof("Loading image: %s", path)
+	return r.Runner.Run(fmt.Sprintf("sudo ctr images import %s", path))
 }
 
 // KubeletOptions returns kubelet options for a containerd
@@ -105,4 +106,9 @@ func (r *Containerd) KillContainers(ids []string) error {
 // StopContainers stops containers based on ID
 func (r *Containerd) StopContainers(ids []string) error {
 	return stopCRIContainers(r.Runner, ids)
+}
+
+// ContainerLogCmd returns the command to retrieve the log for a container based on ID
+func (r *Containerd) ContainerLogCmd(id string, len int, follow bool) string {
+	return criContainerLogCmd(id, len, follow)
 }
