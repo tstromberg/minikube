@@ -30,7 +30,7 @@ type CRIO struct {
 
 // Name is a human readable name for CRIO
 func (r *CRIO) Name() string {
-	return "CRIO"
+	return "CRI-O"
 }
 
 // SocketPath returns the path to the socket file for CRIO
@@ -78,9 +78,8 @@ func (r *CRIO) Disable() error {
 
 // LoadImage loads an image into this runtime
 func (r *CRIO) LoadImage(path string) error {
-	// This should use ctr via pullImageCRI once we sort out why api.v1.CRIPluginService is unimplemented.
+	glog.Infof("Loading image: %s", path)
 	return r.Runner.Run(fmt.Sprintf("sudo podman load -i %s", path))
-
 }
 
 // KubeletOptions returns kubelet options for a runtime.
@@ -106,4 +105,9 @@ func (r *CRIO) KillContainers(ids []string) error {
 // StopContainers stops containers based on ID
 func (r *CRIO) StopContainers(ids []string) error {
 	return stopCRIContainers(r.Runner, ids)
+}
+
+// ContainerLogCmd returns the command to retrieve the log for a container based on ID
+func (r *CRIO) ContainerLogCmd(id string, len int, follow bool) string {
+	return criContainerLogCmd(id, len, follow)
 }

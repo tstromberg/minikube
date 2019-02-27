@@ -21,30 +21,42 @@ import (
 	"fmt"
 	"html/template"
 	"path"
+	"strings"
 
 	"github.com/golang/glog"
 )
 
 // listCRIContainers returns a list of containers using crictl
-func listCRIContainers(_ CommandRunner, _ string) ([]string, error) {
-	// Should use crictl ps -a, but needs some massaging and testing.
-	return []string{}, fmt.Errorf("unimplemented")
-}
-
-// pullImageCRI uses ctr to pull images into a CRI runtime
-func pullImageCRI(cr CommandRunner, path string) error {
-	glog.Infof("Loading image: %s", path)
-	return cr.Run(fmt.Sprintf("sudo ctr cri load %s", path))
+func listCRIContainers(cr CommandRunner, filter string) ([]string, error) {
+	content, err := cr.CombinedOutput(fmt.Sprintf(`sudo crictl ps -a --name=%s --quiet`, filter))
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, line := range strings.Split(content, "\n") {
+		if line != "" {
+			ids = append(ids, line)
+		}
+	}
+	return ids, nil
 }
 
 // criCRIContainers kills a list of containers using crictl
-func killCRIContainers(CommandRunner, []string) error {
-	return fmt.Errorf("unimplemented")
+func killCRIContainers(cr CommandRunner, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	glog.Infof("Killing containers: %s", ids)
+	return cr.Run(fmt.Sprintf("sudo crictl rm %s", strings.Join(ids, " ")))
 }
 
 // stopCRIContainers stops containers using crictl
-func stopCRIContainers(CommandRunner, []string) error {
-	return fmt.Errorf("unimplemented")
+func stopCRIContainers(cr CommandRunner, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	glog.Infof("Stopping containers: %s", ids)
+	return cr.Run(fmt.Sprintf("sudo crictl stop %s", strings.Join(ids, " ")))
 }
 
 // populateCRIConfig sets up /etc/crictl.yaml
@@ -63,4 +75,19 @@ image-endpoint: unix://{{.Socket}}
 		return err
 	}
 	return cr.Run(fmt.Sprintf("sudo mkdir -p %s && printf %%s \"%s\" | sudo tee %s", path.Dir(cPath), b.String(), cPath))
+}
+
+// criContainerLogCmd returns the command to retrieve the log for a container based on ID
+func criContainerLogCmd(id string, len int, follow bool) string {
+	var cmd strings.Builder
+	cmd.WriteString("crictl logs ")
+	if len > 0 {
+		cmd.WriteString(fmt.Sprintf("--tail %d ", len))
+	}
+	if follow {
+		cmd.WriteString("--follow ")
+	}
+
+	cmd.WriteString(id)
+	return cmd.String()
 }

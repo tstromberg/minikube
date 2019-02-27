@@ -18,7 +18,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -105,8 +104,7 @@ func EnableOrDisableAddon(name string, val string) error {
 	//TODO(r2d4): config package should not reference API, pull this out
 	api, err := machine.NewAPIClient()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting client: %v\n", err)
-		os.Exit(1)
+		return errors.Wrap(err, "machine client")
 	}
 	defer api.Close()
 	cluster.EnsureMinikubeRunningOrExit(api, 0)
