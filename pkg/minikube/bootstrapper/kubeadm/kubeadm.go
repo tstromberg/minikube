@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -42,6 +43,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/constants"
 	"k8s.io/minikube/pkg/minikube/cruntime"
 	"k8s.io/minikube/pkg/minikube/machine"
+	"k8s.io/minikube/pkg/minikube/rexec"
 	"k8s.io/minikube/pkg/util"
 )
 
@@ -68,7 +70,7 @@ var SkipPreflights = []string{
 var SkipAdditionalPreflights = map[string][]string{}
 
 type KubeadmBootstrapper struct {
-	c bootstrapper.CommandRunner
+	ex rexec.Executor
 }
 
 func NewKubeadmBootstrapper(api libmachine.API) (*KubeadmBootstrapper, error) {
@@ -76,20 +78,20 @@ func NewKubeadmBootstrapper(api libmachine.API) (*KubeadmBootstrapper, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "getting api client")
 	}
-	runner, err := machine.CommandRunner(h)
+	ex, err := machine.Executor(h)
 	if err != nil {
 		return nil, errors.Wrap(err, "command runner")
 	}
-	return &KubeadmBootstrapper{c: runner}, nil
+	return &KubeadmBootstrapper{ex: ex}, nil
 }
 
 func (k *KubeadmBootstrapper) GetKubeletStatus() (string, error) {
 	statusCmd := `sudo systemctl is-active kubelet`
-	status, err := k.c.CombinedOutput(statusCmd)
+	status, err := k.ex.Combined(statusCmd)
 	if err != nil {
 		return "", errors.Wrap(err, "getting status")
 	}
-	s := strings.TrimSpace(status)
+	s := strings.TrimSpace(string(status))
 	switch s {
 	case "active":
 		return state.Running.String(), nil
@@ -162,7 +164,7 @@ func (k *KubeadmBootstrapper) StartCluster(k8s config.KubernetesConfig) error {
 		return err
 	}
 
-	out, err := k.c.CombinedOutput(b.String())
+	out, err := k.ex.Combined(b.String())
 	if err != nil {
 		return errors.Wrapf(err, "kubeadm init: %s\n%s\n", b.String(), out)
 	}
@@ -227,7 +229,7 @@ func (k *KubeadmBootstrapper) RestartCluster(k8s config.KubernetesConfig) error 
 
 	// Run commands one at a time so that it is easier to root cause failures.
 	for _, cmd := range cmds {
-		if err := k.c.Run(cmd); err != nil {
+		if err := k.ex.Run(cmd); err != nil {
 			return errors.Wrapf(err, "running cmd: %s", cmd)
 		}
 	}
@@ -244,7 +246,7 @@ func (k *KubeadmBootstrapper) RestartCluster(k8s config.KubernetesConfig) error 
 // DeleteCluster removes the components that were started earlier
 func (k *KubeadmBootstrapper) DeleteCluster(k8s config.KubernetesConfig) error {
 	cmd := fmt.Sprintf("sudo kubeadm reset --force")
-	out, err := k.c.CombinedOutput(cmd)
+	out, err := k.ex.Combined(cmd)
 	if err != nil {
 		return errors.Wrapf(err, "kubeadm reset: %s\n%s\n", cmd, out)
 	}
@@ -255,7 +257,7 @@ func (k *KubeadmBootstrapper) DeleteCluster(k8s config.KubernetesConfig) error {
 // PullImages downloads images that will be used by RestartCluster
 func (k *KubeadmBootstrapper) PullImages(k8s config.KubernetesConfig) error {
 	cmd := fmt.Sprintf("sudo kubeadm config images pull --config %s", constants.KubeadmConfigFile)
-	if err := k.c.Run(cmd); err != nil {
+	if err := k.ex.Run(cmd); err != nil {
 		return errors.Wrapf(err, "running cmd: %s", cmd)
 	}
 	return nil
@@ -263,7 +265,7 @@ func (k *KubeadmBootstrapper) PullImages(k8s config.KubernetesConfig) error {
 
 // SetupCerts sets up certificates within the cluster.
 func (k *KubeadmBootstrapper) SetupCerts(k8s config.KubernetesConfig) error {
-	return bootstrapper.SetupCerts(k.c, k8s)
+	return bootstrapper.SetupCerts(k.ex, k8s)
 }
 
 // NewKubeletConfig generates a new systemd unit containing a configured kubelet
@@ -313,7 +315,7 @@ func NewKubeletConfig(k8s config.KubernetesConfig, r cruntime.Manager) (string, 
 
 func (k *KubeadmBootstrapper) UpdateCluster(cfg config.KubernetesConfig) error {
 	if cfg.ShouldLoadCachedImages {
-		err := machine.LoadImages(k.c, constants.GetKubeadmCachedImages(cfg.KubernetesVersion), constants.ImageCacheDir)
+		err := machine.LoadImages(k.ex, constants.GetKubeadmCachedImages(cfg.KubernetesVersion), constants.ImageCacheDir)
 		if err != nil {
 			return errors.Wrap(err, "loading cached images")
 		}
@@ -333,21 +335,6 @@ func (k *KubeadmBootstrapper) UpdateCluster(cfg config.KubernetesConfig) error {
 	}
 	glog.Infof("kubelet %s config:\n%s", cfg.KubernetesVersion, kubeletCfg)
 
-	files := []assets.CopyableFile{
-		assets.NewMemoryAssetTarget([]byte(kubeletService), constants.KubeletServiceFile, "0640"),
-		assets.NewMemoryAssetTarget([]byte(kubeletCfg), constants.KubeletSystemdConfFile, "0640"),
-		assets.NewMemoryAssetTarget([]byte(kubeadmCfg), constants.KubeadmConfigFile, "0640"),
-	}
-
-	// Copy the default CNI config (k8s.conf), so that kubelet can successfully
-	// start a Pod in the case a user hasn't manually installed any CNI plugin
-	// and minikube was started with "--extra-config=kubelet.network-plugin=cni".
-	if cfg.EnableDefaultCNI {
-		files = append(files,
-			assets.NewMemoryAssetTarget([]byte(defaultCNIConfig), constants.DefaultCNIConfigPath, "0644"),
-			assets.NewMemoryAssetTarget([]byte(defaultCNIConfig), constants.DefaultRktNetConfigPath, "0644"))
-	}
-
 	var g errgroup.Group
 	for _, bin := range []string{"kubelet", "kubeadm"} {
 		bin := bin
@@ -356,11 +343,7 @@ func (k *KubeadmBootstrapper) UpdateCluster(cfg config.KubernetesConfig) error {
 			if err != nil {
 				return errors.Wrapf(err, "downloading %s", bin)
 			}
-			f, err := assets.NewFileAsset(path, "/usr/bin", bin, "0641")
-			if err != nil {
-				return errors.Wrap(err, "new file asset")
-			}
-			if err := k.c.Copy(f); err != nil {
+			if err := k.ex.Copy(path, filepath.Join("/usr/bin", bin), os.FileMode(0755)); err != nil {
 				return errors.Wrapf(err, "copy")
 			}
 			return nil
@@ -370,16 +353,35 @@ func (k *KubeadmBootstrapper) UpdateCluster(cfg config.KubernetesConfig) error {
 		return errors.Wrap(err, "downloading binaries")
 	}
 
-	if err := addAddons(&files); err != nil {
+	cfgFiles := map[string]string{
+		constants.KubeletServiceFile:     kubeletService,
+		constants.KubeletSystemdConfFile: kubeletCfg,
+		constants.KubeadmConfigFile:      kubeadmCfg,
+	}
+
+	// Copy the default CNI config (k8s.conf), so that kubelet can successfully
+	// start a Pod in the case a user hasn't manually installed any CNI plugin
+	// and minikube was started with "--extra-config=kubelet.network-plugin=cni".
+	if cfg.EnableDefaultCNI {
+		cfgFiles[constants.DefaultCNIConfigPath] = defaultCNIConfig
+		cfgFiles[constants.DefaultRktNetConfigPath] = defaultCNIConfig
+	}
+
+	for path, value := range cfgFiles {
+		k.ex.WriteFile(strings.NewReader(value), path, int64(len(value)), os.FileMode(0644))
+	}
+
+	cf := []assets.CopyableFile{}
+	if err := addAddons(&cf); err != nil {
 		return errors.Wrap(err, "adding addons")
 	}
 
-	for _, f := range files {
-		if err := k.c.Copy(f); err != nil {
+	for _, f := range cf {
+		if err := assets.Install(f, k.ex); err != nil {
 			return errors.Wrapf(err, "copy")
 		}
 	}
-	err = k.c.Run(`
+	err = k.ex.Run(`
 sudo systemctl daemon-reload &&
 sudo systemctl enable kubelet &&
 sudo systemctl start kubelet

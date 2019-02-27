@@ -48,6 +48,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/exit"
 	"k8s.io/minikube/pkg/minikube/logs"
 	"k8s.io/minikube/pkg/minikube/machine"
+	"k8s.io/minikube/pkg/minikube/rexec"
 	pkgutil "k8s.io/minikube/pkg/util"
 	"k8s.io/minikube/pkg/util/kubeconfig"
 	"k8s.io/minikube/pkg/version"
@@ -190,19 +191,19 @@ func runStart(cmd *cobra.Command, args []string) {
 	if err := saveConfig(config); err != nil {
 		exit.WithError("Failed to save config", err)
 	}
-	runner, err := machine.CommandRunner(host)
+	ex, err := machine.Executor(host)
 	if err != nil {
-		exit.WithError("Failed to get command runner", err)
+		exit.WithError("Failed to get executor", err)
 	}
 
-	cr := configureRuntimes(host, runner)
+	cr := configureRuntimes(host, ex)
 	bs := prepareHostEnvironment(m, config.KubernetesConfig)
 	waitCacheImages(&cacheGroup)
 
 	// The kube config must be update must come before bootstrapping, otherwise health checks may use a stale IP
 	kubeconfig := updateKubeConfig(host, &config)
-	bootstrapCluster(bs, cr, runner, config.KubernetesConfig, preexisting)
-	validateCluster(bs, cr, runner, ip)
+	bootstrapCluster(bs, cr, ex, config.KubernetesConfig, preexisting)
+	validateCluster(bs, cr, ex, ip)
 	configureMounts()
 	if err = LoadCachedImagesInConfigFile(); err != nil {
 		console.Failure("Unable to load cached images from config file.")
@@ -461,8 +462,8 @@ func updateKubeConfig(h *host.Host, c *cfg.Config) *kubeconfig.KubeConfigSetup {
 }
 
 // configureRuntimes does what needs to happen to get a runtime going.
-func configureRuntimes(h *host.Host, runner bootstrapper.CommandRunner) cruntime.Manager {
-	config := cruntime.Config{Type: viper.GetString(containerRuntime), Runner: runner}
+func configureRuntimes(h *host.Host, ex rexec.Executor) cruntime.Manager {
+	config := cruntime.Config{Type: viper.GetString(containerRuntime), Runner: ex}
 	cr, err := cruntime.New(config)
 	if err != nil {
 		exit.WithError(fmt.Sprintf("Failed runtime for %+v", config), err)
@@ -494,7 +495,7 @@ func waitCacheImages(g *errgroup.Group) {
 }
 
 // bootstrapCluster starts Kubernetes using the chosen bootstrapper
-func bootstrapCluster(bs bootstrapper.Bootstrapper, r cruntime.Manager, runner bootstrapper.CommandRunner, kc cfg.KubernetesConfig, preexisting bool) {
+func bootstrapCluster(bs bootstrapper.Bootstrapper, cr cruntime.Manager, st rexec.Streamer, kc cfg.KubernetesConfig, preexisting bool) {
 	console.OutStyle("pulling", "Pulling images required by Kubernetes %s ...", kc.KubernetesVersion)
 	if err := bs.PullImages(kc); err != nil {
 		console.OutStyle("failure", "Unable to pull images, which may be OK: %v", err)
@@ -505,19 +506,19 @@ func bootstrapCluster(bs bootstrapper.Bootstrapper, r cruntime.Manager, runner b
 	if preexisting {
 		console.OutStyle("restarting", "Relaunching Kubernetes %s using %s ... ", kc.KubernetesVersion, bsName)
 		if err := bs.RestartCluster(kc); err != nil {
-			exit.WithProblems("Error restarting cluster", err, logs.FindProblems(r, bs, runner))
+			exit.WithProblems("Error restarting cluster", err, logs.FindProblems(cr, bs, st))
 		}
 		return
 	}
 
 	console.OutStyle("launch", "Launching Kubernetes %s using %s ... ", kc.KubernetesVersion, bsName)
 	if err := bs.StartCluster(kc); err != nil {
-		exit.WithProblems("Error starting cluster", err, logs.FindProblems(r, bs, runner))
+		exit.WithProblems("Error starting cluster", err, logs.FindProblems(cr, bs, st))
 	}
 }
 
 // validateCluster validates that the cluster is well-configured and healthy
-func validateCluster(bs bootstrapper.Bootstrapper, r cruntime.Manager, runner bootstrapper.CommandRunner, ip string) {
+func validateCluster(bs bootstrapper.Bootstrapper, r cruntime.Manager, st rexec.Streamer, ip string) {
 	console.OutStyle("verifying-noline", "Verifying component health ...")
 	kStat := func() (err error) {
 		st, err := bs.GetKubeletStatus()
@@ -529,7 +530,7 @@ func validateCluster(bs bootstrapper.Bootstrapper, r cruntime.Manager, runner bo
 	}
 	err := pkgutil.RetryAfter(20, kStat, 3*time.Second)
 	if err != nil {
-		exit.WithProblems("kubelet checks failed", err, logs.FindProblems(r, bs, runner))
+		exit.WithProblems("kubelet checks failed", err, logs.FindProblems(r, bs, st))
 	}
 	aStat := func() (err error) {
 		st, err := bs.GetApiServerStatus(net.ParseIP(ip))
@@ -542,7 +543,7 @@ func validateCluster(bs bootstrapper.Bootstrapper, r cruntime.Manager, runner bo
 
 	err = pkgutil.RetryAfter(30, aStat, 10*time.Second)
 	if err != nil {
-		exit.WithProblems("apiserver checks failed", err, logs.FindProblems(r, bs, runner))
+		exit.WithProblems("apiserver checks failed", err, logs.FindProblems(r, bs, st))
 	}
 	console.OutLn("")
 }

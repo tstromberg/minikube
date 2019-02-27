@@ -123,7 +123,7 @@ func TestParseTable(t *testing.T) {
 
 func addRoute(t *testing.T, cidr string, gw string) {
 	command := exec.Command("sudo", "ip", "route", "add", cidr, "via", gw)
-	sout, err := command.CombinedOutput()
+	sout, err := command.Combined()
 	if err != nil {
 		t.Logf("assertion add route error (should be ok): %s, error: %s", sout, err)
 	} else {
@@ -133,7 +133,7 @@ func addRoute(t *testing.T, cidr string, gw string) {
 
 func cleanRoute(t *testing.T, cidr string) {
 	command := exec.Command("sudo", "ip", "route", "delete", cidr)
-	sout, err := command.CombinedOutput()
+	sout, err := command.Combined()
 	if err != nil {
 		t.Logf("integration test cleanup error (should be ok): %s, error: %s", sout, err)
 	} else {

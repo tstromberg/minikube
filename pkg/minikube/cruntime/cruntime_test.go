@@ -116,7 +116,7 @@ func NewFakeRunner(t *testing.T) *FakeRunner {
 }
 
 // Run a fake command!
-func (f *FakeRunner) CombinedOutput(cmd string) (string, error) {
+func (f *FakeRunner) Combined(cmd string) (string, error) {
 	f.cmds = append(f.cmds, cmd)
 
 	root := false
@@ -141,7 +141,7 @@ func (f *FakeRunner) CombinedOutput(cmd string) (string, error) {
 
 // Run a fake command!
 func (f *FakeRunner) Run(cmd string) error {
-	_, err := f.CombinedOutput(cmd)
+	_, err := f.Combined(cmd)
 	return err
 }
 

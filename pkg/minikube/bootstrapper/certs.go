@@ -17,7 +17,9 @@ limitations under the License.
 package bootstrapper
 
 import (
+	"bytes"
 	"net"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -27,44 +29,49 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
-	"k8s.io/minikube/pkg/minikube/assets"
 	"k8s.io/minikube/pkg/minikube/config"
 	"k8s.io/minikube/pkg/minikube/constants"
+	"k8s.io/minikube/pkg/minikube/rexec"
 	"k8s.io/minikube/pkg/util"
 	"k8s.io/minikube/pkg/util/kubeconfig"
 )
 
 var (
-	certs = []string{
-		"ca.crt", "ca.key", "apiserver.crt", "apiserver.key", "proxy-client-ca.crt",
-		"proxy-client-ca.key", "proxy-client.crt", "proxy-client.key",
+	// installCerts is a list of certificate paths to install
+	installCerts = []string{
+		"ca.crt",
+		"ca.key",
+		"apiserver.crt",
+		"apiserver.key",
+		"proxy-client-ca.crt",
+		"proxy-client-ca.key",
+		"proxy-client.crt",
+		"proxy-client.key",
 	}
 )
 
-// SetupCerts gets the generated credentials required to talk to the APIServer.
-func SetupCerts(cmd CommandRunner, k8s config.KubernetesConfig) error {
-	localPath := constants.GetMinipath()
+// SetupCerts generates and uploads certificate data into the VM
+func SetupCerts(w rexec.Writer, k8s config.KubernetesConfig) error {
 	glog.Infof("Setting up certificates for IP: %s\n", k8s.NodeIP)
 
 	if err := generateCerts(k8s); err != nil {
 		return errors.Wrap(err, "Error generating certs")
 	}
-
-	copyableFiles := []assets.CopyableFile{}
-
-	for _, cert := range certs {
-		p := filepath.Join(localPath, cert)
-		perms := "0644"
-		if strings.HasSuffix(cert, ".key") {
-			perms = "0600"
+	localPath := constants.GetMinipath()
+	for _, name := range installCerts {
+		perms := os.FileMode(0644)
+		if strings.HasSuffix(name, ".key") {
+			perms = os.FileMode(0600)
 		}
-		certFile, err := assets.NewFileAsset(p, util.DefaultCertPath, cert, perms)
-		if err != nil {
+		if err := w.Copy(filepath.Join(localPath, name), filepath.Join(util.DefaultCertPath, name), perms); err != nil {
 			return err
 		}
-		copyableFiles = append(copyableFiles, certFile)
 	}
+	return installKubeCfg(w, k8s)
+}
 
+// installKubeCfg remotely installs a kubecfg, populated with certificate information.
+func installKubeCfg(w rexec.Writer, k8s config.KubernetesConfig) error {
 	kubeCfgSetup := &kubeconfig.KubeConfigSetup{
 		ClusterName:          k8s.NodeName,
 		ClusterServerAddress: "https://localhost:8443",
@@ -83,19 +90,10 @@ func SetupCerts(cmd CommandRunner, k8s config.KubernetesConfig) error {
 	if err != nil {
 		return errors.Wrap(err, "encoding kubeconfig")
 	}
-
-	kubeCfgFile := assets.NewMemoryAsset(data,
-		util.DefaultMinikubeDirectory, "kubeconfig", "0644")
-	copyableFiles = append(copyableFiles, kubeCfgFile)
-
-	for _, f := range copyableFiles {
-		if err := cmd.Copy(f); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.WriteFile(bytes.NewReader(data), filepath.Join(util.DefaultMinikubeDirectory, "kubeconfig"), int64(len(data)), 0644)
 }
 
+// generateCerts generates self-signed certificates on local disk based on a KubernetesCOnfig
 func generateCerts(k8s config.KubernetesConfig) error {
 	serviceIP, err := util.GetServiceClusterIP(k8s.ServiceCIDR)
 	if err != nil {

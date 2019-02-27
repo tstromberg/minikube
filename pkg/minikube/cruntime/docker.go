@@ -17,6 +17,8 @@ limitations under the License.
 package cruntime
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -85,14 +87,17 @@ func (r *Docker) KubeletOptions() map[string]string {
 
 // ListContainers returns a list of containers
 func (r *Docker) ListContainers(filter string) ([]string, error) {
-	content, err := r.Runner.CombinedOutput(fmt.Sprintf(`docker ps -a --filter="name=%s" --format="{{.ID}}"`, filter))
+	out, _, err := r.Runner.Out(fmt.Sprintf(`docker ps -a --filter="name=%s" --format="{{.ID}}"`, filter))
 	if err != nil {
 		return nil, err
 	}
+
 	var ids []string
-	for _, line := range strings.Split(content, "\n") {
-		if line != "" {
-			ids = append(ids, line)
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		id := scanner.Text()
+		if id != "" {
+			ids = append(ids, id)
 		}
 	}
 	return ids, nil

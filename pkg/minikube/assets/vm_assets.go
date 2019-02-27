@@ -18,11 +18,15 @@ package assets
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path"
+	"path/filepath"
+	"strconv"
 
 	"github.com/pkg/errors"
+	"k8s.io/minikube/pkg/minikube/rexec"
 )
 
 type CopyableFile interface {
@@ -166,4 +170,17 @@ func (m *BinDataAsset) GetLength() int {
 
 func (m *BinDataAsset) Read(p []byte) (int, error) {
 	return m.reader.Read(p)
+}
+
+// Install a CopyableFile
+func Install(cf CopyableFile, w rexec.Writer) error {
+	perms, err := strconv.ParseUint(cf.GetPermissions(), 0, 32)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("parse %s", cf.GetPermissions()))
+	}
+	dst := filepath.Join(cf.GetTargetDir(), cf.GetTargetName())
+	if err := w.WriteFile(cf, dst, int64(cf.GetLength()), os.FileMode(perms)); err != nil {
+		return errors.Wrapf(err, "enable a %s", cf.GetAssetName())
+	}
+	return nil
 }

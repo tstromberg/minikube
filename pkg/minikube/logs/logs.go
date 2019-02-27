@@ -30,6 +30,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/bootstrapper"
 	"k8s.io/minikube/pkg/minikube/console"
 	"k8s.io/minikube/pkg/minikube/cruntime"
+	"k8s.io/minikube/pkg/minikube/rexec"
 )
 
 // rootCauseRe is a regular expression that matches known failure root causes
@@ -47,13 +48,13 @@ var importantPods = []string{
 const lookBackwardsCount = 200
 
 // Follow follows logs from multiple files in tail(1) format
-func Follow(r cruntime.Manager, bs bootstrapper.Bootstrapper, runner bootstrapper.CommandRunner) error {
+func Follow(r cruntime.Manager, bs bootstrapper.Bootstrapper, st rexec.Streamer) (rexec.Waiter, error) {
 	cs := []string{}
 	for _, v := range logCommands(r, bs, 0, true) {
 		cs = append(cs, v+" &")
 	}
 	cs = append(cs, "wait")
-	return runner.CombinedOutputTo(strings.Join(cs, " "), os.Stdout)
+	return st.Stream(strings.Join(cs, " "), os.Stdout, os.Stdout)
 }
 
 // IsProblem returns whether this line matches a known problem
@@ -62,13 +63,13 @@ func IsProblem(line string) bool {
 }
 
 // FindProblems finds possible root causes among the logs
-func FindProblems(r cruntime.Manager, bs bootstrapper.Bootstrapper, runner bootstrapper.CommandRunner) map[string][]string {
+func FindProblems(r cruntime.Manager, bs bootstrapper.Bootstrapper, st rexec.Streamer) map[string][]string {
 	pMap := map[string][]string{}
 	cmds := logCommands(r, bs, lookBackwardsCount, false)
 	for name, cmd := range cmds {
 		glog.Infof("Gathering logs for %s ...", name)
 		var b bytes.Buffer
-		err := runner.CombinedOutputTo(cmds[name], &b)
+		waiter, err := st.Stream(cmds[name], &b, &b)
 		if err != nil {
 			glog.Warningf("failed %s: %s: %v", name, cmd, err)
 			continue
@@ -81,6 +82,9 @@ func FindProblems(r cruntime.Manager, bs bootstrapper.Bootstrapper, runner boots
 				glog.Warningf("Found %s problem: %s", name, l)
 				problems = append(problems, l)
 			}
+		}
+		if err := waiter.Wait(); err != nil {
+			glog.Warningf("failed wait: %v", err)
 		}
 		if len(problems) > 0 {
 			pMap[name] = problems
@@ -103,7 +107,7 @@ func OutputProblems(problems map[string][]string, maxLines int) {
 }
 
 // Output displays logs from multiple sources in tail(1) format
-func Output(r cruntime.Manager, bs bootstrapper.Bootstrapper, runner bootstrapper.CommandRunner, lines int) error {
+func Output(r cruntime.Manager, bs bootstrapper.Bootstrapper, st rexec.Streamer, lines int) error {
 	cmds := logCommands(r, bs, lines, false)
 	names := []string{}
 	for k := range cmds {
@@ -115,7 +119,7 @@ func Output(r cruntime.Manager, bs bootstrapper.Bootstrapper, runner bootstrappe
 	for _, name := range names {
 		console.OutLn("==> %s <==", name)
 		var b bytes.Buffer
-		err := runner.CombinedOutputTo(cmds[name], &b)
+		waiter, err := st.Stream(cmds[name], &b, &b)
 		if err != nil {
 			glog.Errorf("failed: %v", err)
 			failed = append(failed, name)
@@ -125,6 +129,10 @@ func Output(r cruntime.Manager, bs bootstrapper.Bootstrapper, runner bootstrappe
 		for scanner.Scan() {
 			console.OutLn(scanner.Text())
 		}
+		if err := waiter.Wait(); err != nil {
+			glog.Errorf("wait failed: %v", err)
+		}
+		console.OutLn("")
 	}
 	if len(failed) > 0 {
 		return fmt.Errorf("unable to fetch logs for: %s", strings.Join(failed, ", "))

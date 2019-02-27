@@ -17,6 +17,7 @@ limitations under the License.
 package cruntime
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"html/template"
@@ -28,14 +29,16 @@ import (
 
 // listCRIContainers returns a list of containers using crictl
 func listCRIContainers(cr CommandRunner, filter string) ([]string, error) {
-	content, err := cr.CombinedOutput(fmt.Sprintf(`sudo crictl ps -a --name=%s --quiet`, filter))
+	out, _, err := cr.Out(fmt.Sprintf(`sudo crictl ps -a --name=%s --quiet`, filter))
 	if err != nil {
 		return nil, err
 	}
 	var ids []string
-	for _, line := range strings.Split(content, "\n") {
-		if line != "" {
-			ids = append(ids, line)
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		id := scanner.Text()
+		if id != "" {
+			ids = append(ids, id)
 		}
 	}
 	return ids, nil

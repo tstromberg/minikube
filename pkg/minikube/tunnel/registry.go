@@ -121,7 +121,7 @@ func (r *persistentRegistry) Register(tunnel *ID) error {
 	defer func() {
 		err := f.Close()
 		if err != nil {
-			fmt.Errorf("error closing registry file: %s", err)
+			glog.Errorf("error closing registry file: %s", err)
 		}
 	}()
 
@@ -158,7 +158,7 @@ func (r *persistentRegistry) Remove(route *Route) error {
 	defer func() {
 		err := f.Close()
 		if err != nil {
-			fmt.Errorf("error closing tunnel registry file: %s", err)
+			glog.Errorf("error closing tunnel registry file: %s", err)
 		}
 	}()
 

@@ -26,10 +26,10 @@ import (
 
 const MinikubeContainerPrefix = "k8s_"
 
-// CommandRunner is the subset of bootstrapper.CommandRunner this package consumes
+// CommandRunner is the subset of rexec.Executor this package consumes
 type CommandRunner interface {
 	Run(string) error
-	CombinedOutput(string) (string, error)
+	Out(cmd string) ([]byte, []byte, error)
 }
 
 // Manager is a common interface for container runtimes

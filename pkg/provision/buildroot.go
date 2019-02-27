@@ -24,20 +24,21 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/golang/glog"
+
 	"github.com/docker/machine/libmachine/auth"
 	"github.com/docker/machine/libmachine/cert"
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/docker/machine/libmachine/engine"
-	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnutils"
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/docker/machine/libmachine/provision/pkgaction"
 	"github.com/docker/machine/libmachine/provision/serviceaction"
 	"github.com/docker/machine/libmachine/swarm"
 	"github.com/pkg/errors"
-	"k8s.io/minikube/pkg/minikube/assets"
-	"k8s.io/minikube/pkg/minikube/bootstrapper"
 	"k8s.io/minikube/pkg/minikube/config"
+	"k8s.io/minikube/pkg/minikube/console"
+	"k8s.io/minikube/pkg/minikube/rexec"
 	"k8s.io/minikube/pkg/minikube/sshutil"
 	"k8s.io/minikube/pkg/util"
 )
@@ -143,30 +144,30 @@ func (p *BuildrootProvisioner) Provision(swarmOptions swarm.Options, authOptions
 	p.AuthOptions = authOptions
 	p.EngineOptions = engineOptions
 
-	log.Debugf("setting hostname %q", p.Driver.GetMachineName())
+	glog.Infof("provisioning %q", p.Driver.GetMachineName())
 	if err := p.SetHostname(p.Driver.GetMachineName()); err != nil {
 		return err
 	}
 
 	p.AuthOptions = setRemoteAuthOptions(p)
-	log.Debugf("set auth options %+v", p.AuthOptions)
+	glog.V(2).Infof("set auth options %+v", p.AuthOptions)
 
-	log.Debugf("setting up certificates")
+	glog.V(2).Infof("setting up certificates")
 	configureAuth := func() error {
 		if err := configureAuth(p); err != nil {
-			return &util.RetriableError{Err: err}
+			return &util.RetriableError{Err: errors.Wrap(err, "configure auth")}
 		}
 		return nil
 	}
 	err := util.RetryAfter(5, configureAuth, time.Second*10)
 	if err != nil {
-		log.Debugf("Error configuring auth during provisioning %v", err)
+		glog.V(2).Infof("Error configuring auth during provisioning %v", err)
 		return err
 	}
 
-	log.Debugf("setting minikube options for container-runtime")
+	glog.V(2).Infof("setting minikube options for container-runtime")
 	if err := setMinikubeOptions(p); err != nil {
-		log.Debugf("Error setting container-runtime options during provisioning %v", err)
+		glog.V(2).Infof("Error setting container-runtime options during provisioning %v", err)
 		return err
 	}
 
@@ -209,13 +210,14 @@ CRIO_MINIKUBE_OPTIONS='{{ range .EngineOptions.InsecureRegistry }}--insecure-reg
 
 	// This is unlikely to cause issues unless the user has explicitly requested CRIO, so just log a warning.
 	if err := p.Service("crio", serviceaction.Restart); err != nil {
-		log.Warn("Unable to restart crio service. Error: %v", err)
+		glog.Warningf("Unable to restart crio service. Error: %v", err)
 	}
 
 	return nil
 }
 
 func configureAuth(p *BuildrootProvisioner) error {
+	glog.Infof("Configuring auth ...")
 	driver := p.GetDriver()
 	machineName := driver.GetMachineName()
 	authOptions := p.GetAuthOptions()
@@ -227,26 +229,23 @@ func configureAuth(p *BuildrootProvisioner) error {
 		return errors.Wrap(err, "error getting ip during provisioning")
 	}
 
-	execRunner := &bootstrapper.ExecRunner{}
-	hostCerts := map[string]string{
-		authOptions.CaCertPath:     path.Join(authOptions.StorePath, "ca.pem"),
-		authOptions.ClientCertPath: path.Join(authOptions.StorePath, "cert.pem"),
-		authOptions.ClientKeyPath:  path.Join(authOptions.StorePath, "key.pem"),
+	local := rexec.NewLocal()
+	certs := map[string]string{
+		authOptions.CaCertPath:     "ca.pem",
+		authOptions.ClientCertPath: "cert.pem",
+		authOptions.ClientKeyPath:  "key.pem",
 	}
-
-	for src, dst := range hostCerts {
-		f, err := assets.NewFileAsset(src, path.Dir(dst), filepath.Base(dst), "0777")
+	for src, dst := range certs {
+		glog.Infof("cert %s -> %s", src, dst)
+		err := local.Copy(src, filepath.Join(authOptions.StorePath, dst), 0750)
 		if err != nil {
-			return errors.Wrapf(err, "open cert file: %s", src)
-		}
-		if err := execRunner.Copy(f); err != nil {
-			return errors.Wrapf(err, "transferring file: %+v", f)
+			return errors.Wrap(err, "copy")
 		}
 	}
 
 	// The Host IP is always added to the certificate's SANs list
 	hosts := append(authOptions.ServerCertSANs, ip, "localhost")
-	log.Debugf("generating server cert: %s ca-key=%s private-key=%s org=%s san=%s",
+	glog.V(2).Infof("generating server cert: %s ca-key=%s private-key=%s org=%s san=%s",
 		authOptions.ServerCertPath,
 		authOptions.CaCertPath,
 		authOptions.CaPrivateKeyPath,
@@ -268,30 +267,26 @@ func configureAuth(p *BuildrootProvisioner) error {
 		return fmt.Errorf("error generating server cert: %v", err)
 	}
 
+	sc, err := sshutil.NewSSHClient(driver)
+	if err != nil {
+		return errors.Wrap(err, "ssh")
+	}
+	ssh := rexec.NewSSH(sc)
+
 	remoteCerts := map[string]string{
 		authOptions.CaCertPath:     authOptions.CaCertRemotePath,
 		authOptions.ServerCertPath: authOptions.ServerCertRemotePath,
 		authOptions.ServerKeyPath:  authOptions.ServerKeyRemotePath,
 	}
-
-	sshClient, err := sshutil.NewSSHClient(driver)
-	if err != nil {
-		return errors.Wrap(err, "provisioning: error getting ssh client")
-	}
-	sshRunner := bootstrapper.NewSSHRunner(sshClient)
 	for src, dst := range remoteCerts {
-		f, err := assets.NewFileAsset(src, path.Dir(dst), filepath.Base(dst), "0640")
-		if err != nil {
-			return errors.Wrapf(err, "error copying %s to %s", src, dst)
-		}
-		if err := sshRunner.Copy(f); err != nil {
-			return errors.Wrapf(err, "transferring file to machine %v", f)
+		if err := ssh.Copy(src, dst, 0640); err != nil {
+			return errors.Wrap(err, "copy")
 		}
 	}
 
 	config, err := config.Load()
 	if err != nil {
-		return errors.Wrap(err, "getting cluster config")
+		return errors.Wrap(err, "load")
 	}
 
 	dockerCfg, err := p.GenerateDockerOptions(engine.DefaultPort)
@@ -299,14 +294,13 @@ func configureAuth(p *BuildrootProvisioner) error {
 		return errors.Wrap(err, "generating docker options")
 	}
 
-	log.Info("Setting Docker configuration on the remote daemon...")
-
+	console.OutLn("DOCKER!!!!")
+	glog.Info("Setting Docker configuration on the remote daemon...")
 	if _, err = p.SSHCommand(fmt.Sprintf("sudo mkdir -p %s && printf %%s \"%s\" | sudo tee %s", path.Dir(dockerCfg.EngineOptionsPath), dockerCfg.EngineOptions, dockerCfg.EngineOptionsPath)); err != nil {
 		return err
 	}
 
 	if config.MachineConfig.ContainerRuntime == "" {
-
 		if err := p.Service("docker", serviceaction.Enable); err != nil {
 			return err
 		}
@@ -315,6 +309,5 @@ func configureAuth(p *BuildrootProvisioner) error {
 			return err
 		}
 	}
-
 	return nil
 }
