@@ -21,7 +21,6 @@ import (
 	"crypto"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -39,6 +38,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/assets"
 	"k8s.io/minikube/pkg/minikube/bootstrapper"
 	"k8s.io/minikube/pkg/minikube/config"
+	"k8s.io/minikube/pkg/minikube/console"
 	"k8s.io/minikube/pkg/minikube/constants"
 	"k8s.io/minikube/pkg/minikube/cruntime"
 	"k8s.io/minikube/pkg/minikube/machine"
@@ -120,28 +120,17 @@ func (k *KubeadmBootstrapper) GetApiServerStatus(ip net.IP) (string, error) {
 	return state.Running.String(), nil
 }
 
-// TODO(r2d4): Should this aggregate all the logs from the control plane?
-// Maybe subcommands for each component? minikube logs apiserver?
-func (k *KubeadmBootstrapper) GetClusterLogsTo(follow bool, out io.Writer) error {
-	var flags []string
-	if follow {
-		flags = append(flags, "-f")
+// LogCommands returns a map of log type to a command which will display that log.
+func (k *KubeadmBootstrapper) LogCommands(o bootstrapper.LogOptions) map[string]string {
+	var kcmd strings.Builder
+	kcmd.WriteString("journalctl -u kubelet")
+	if o.Lines > 0 {
+		kcmd.WriteString(fmt.Sprintf(" -n %d", o.Lines))
 	}
-	logsCommand := fmt.Sprintf("sudo journalctl %s -u kubelet", strings.Join(flags, " "))
-
-	if follow {
-		if err := k.c.CombinedOutputTo(logsCommand, out); err != nil {
-			return errors.Wrap(err, "getting cluster logs")
-		}
-	} else {
-
-		logs, err := k.c.CombinedOutput(logsCommand)
-		if err != nil {
-			return errors.Wrap(err, "getting cluster logs")
-		}
-		fmt.Fprint(out, logs)
+	if o.Follow {
+		kcmd.WriteString(" -f")
 	}
-	return nil
+	return map[string]string{"kubelet": kcmd.String()}
 }
 
 func (k *KubeadmBootstrapper) StartCluster(k8s config.KubernetesConfig) error {
@@ -186,6 +175,8 @@ func (k *KubeadmBootstrapper) StartCluster(k8s config.KubernetesConfig) error {
 		}
 	}
 
+	// NOTE: We have not yet asserted that we can access the apiserver. Now would be a great time to do so.
+	console.OutStyle("permissions", "Configuring cluster permissions ...")
 	if err := util.RetryAfter(100, elevateKubeSystemPrivileges, time.Millisecond*500); err != nil {
 		return errors.Wrap(err, "timed out waiting to elevate kube-system RBAC privileges")
 	}
@@ -240,8 +231,22 @@ func (k *KubeadmBootstrapper) RestartCluster(k8s config.KubernetesConfig) error 
 			return errors.Wrapf(err, "running cmd: %s", cmd)
 		}
 	}
+
+	// NOTE: Perhaps now would be a good time to check apiserver health?
+	console.OutStyle("waiting", "Waiting for kube-proxy to come back up ...")
 	if err := restartKubeProxy(k8s); err != nil {
 		return errors.Wrap(err, "restarting kube-proxy")
+	}
+
+	return nil
+}
+
+// DeleteCluster removes the components that were started earlier
+func (k *KubeadmBootstrapper) DeleteCluster(k8s config.KubernetesConfig) error {
+	cmd := fmt.Sprintf("sudo kubeadm reset --force")
+	out, err := k.c.CombinedOutput(cmd)
+	if err != nil {
+		return errors.Wrapf(err, "kubeadm reset: %s\n%s\n", cmd, out)
 	}
 
 	return nil
@@ -308,9 +313,8 @@ func NewKubeletConfig(k8s config.KubernetesConfig, r cruntime.Manager) (string, 
 
 func (k *KubeadmBootstrapper) UpdateCluster(cfg config.KubernetesConfig) error {
 	if cfg.ShouldLoadCachedImages {
-		err := machine.LoadImages(k.c, constants.GetKubeadmCachedImages(cfg.KubernetesVersion), constants.ImageCacheDir)
-		if err != nil {
-			return errors.Wrap(err, "loading cached images")
+		if err := machine.LoadImages(k.c, constants.GetKubeadmCachedImages(cfg.KubernetesVersion), constants.ImageCacheDir); err != nil {
+			console.Failure("Unable to load cached images: %v", err)
 		}
 	}
 	r, err := cruntime.New(cruntime.Config{Type: cfg.ContainerRuntime, Socket: cfg.CRISocket})
@@ -353,10 +357,10 @@ func (k *KubeadmBootstrapper) UpdateCluster(cfg config.KubernetesConfig) error {
 			}
 			f, err := assets.NewFileAsset(path, "/usr/bin", bin, "0641")
 			if err != nil {
-				return errors.Wrap(err, "making new file asset")
+				return errors.Wrap(err, "new file asset")
 			}
 			if err := k.c.Copy(f); err != nil {
-				return errors.Wrapf(err, "transferring kubeadm file: %+v", f)
+				return errors.Wrapf(err, "copy")
 			}
 			return nil
 		})
@@ -366,15 +370,14 @@ func (k *KubeadmBootstrapper) UpdateCluster(cfg config.KubernetesConfig) error {
 	}
 
 	if err := addAddons(&files); err != nil {
-		return errors.Wrap(err, "adding addons to copyable files")
+		return errors.Wrap(err, "adding addons")
 	}
 
 	for _, f := range files {
 		if err := k.c.Copy(f); err != nil {
-			return errors.Wrapf(err, "transferring kubeadm file: %+v", f)
+			return errors.Wrapf(err, "copy")
 		}
 	}
-
 	err = k.c.Run(`
 sudo systemctl daemon-reload &&
 sudo systemctl enable kubelet &&
@@ -482,10 +485,9 @@ func maybeDownloadAndCache(binary, version string) (string, error) {
 	options.Checksum = constants.GetKubernetesReleaseURLSha1(binary, version)
 	options.ChecksumHash = crypto.SHA1
 
-	glog.Infof("Downloading %s %s", binary, version)
+	console.OutStyle("file-download", "Downloading %s %s", binary, version)
 	if err := download.ToFile(url, targetFilepath, options); err != nil {
 		return "", errors.Wrapf(err, "Error downloading %s %s", binary, version)
 	}
-	glog.Infof("Finished Downloading %s %s", binary, version)
 	return targetFilepath, nil
 }
