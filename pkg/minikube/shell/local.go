@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rexec
+package shell
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"os/exec"
@@ -25,78 +26,90 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"k8s.io/minikube/pkg/util"
 )
 
-// Local runs commands locally, implementing the FullRunner interface.
-type Local struct{}
+// NewLocal returns a new local shell
+func NewLocal(c Config) *Local {
+	return &Local{config: c}
+}
 
-// NewSSH returns a new SSH implementation
-func NewLocal() *Local {
-	return &Local{}
+// Local runs commands locally, implementing the Commander interface.
+type Local struct {
+	config Config
 }
 
 // Run executes a command
 func (l *Local) Run(cmd string) error {
-	_, _, err := streamToOut(cmd, l)
+	_, err := l.Output(cmd)
 	return err
 }
 
-// Out executes a command, returning stdout, stderr.
-func (l *Local) Out(cmd string) ([]byte, []byte, error) {
-	var combined bytes.Buffer
+// Out executes a command, returning output
+func (l *Local) Output(cmd string) (*OutResult, error) {
+	var combined singleWriter
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	w, err := s.Stream(cmd, &stdout, &stderr)
+
+	waiter, err := l.Stream(cmd, StreamOpts{&stdout, &stderr, &combined})
 	if err != nil {
-		return stdout.Bytes(), stderr.Bytes(), err
+		return nil, err
 	}
-	err = w.Wait()
-	return stdout.Bytes(), stderr.Bytes(), err
-}
-
-
-	return streamToOut(cmd, l)
-
-}
-
-// Combined executes a command, returning a combined stdout and stderr
-func (l *Local) Combined(cmd string) ([]byte, error) {
-	return streamToCombined(cmd, l)
+	err = waiter.Wait()
+	return &OutResult{
+		Stdout:   stdout.Bytes(),
+		Stderr:   stderr.Bytes(),
+		Combined: combined.Bytes(),
+		ExitCode: waiter.ExitCode(),
+	}, err
 }
 
 // Stream executes a command, streaming stdout, stderr appropriately
-func (l *Local) Stream(cmd string, stdout io.Writer, stderr io.Writer) (Waiter, error) {
+func (l *Local) Stream(cmd string, opts StreamOpts) (Waiter, error) {
 	glog.Infof("Local: %s", cmd)
 
-	c := exec.Command("/bin/sh", "-c", cmd)
-	outPipe, err := c.StdoutPipe()
-	if err != nil {
-		return nil, errors.Wrap(err, "stdout")
+	var ew, ow []io.Writer
+	if opts.Stderr != nil {
+		ew = append(ew, opts.Stderr)
+	}
+	if opts.Stdout != nil {
+		ow = append(ow, opts.Stdout)
+	}
+	if opts.Combined != nil {
+		ew = append(ew, opts.Combined)
+		ow = append(ow, opts.Combined)
 	}
 
-	errPipe, err := c.StderrPipe()
-	if err != nil {
-		return nil, errors.Wrap(err, "stderr")
-	}
+	c := exec.Command("/bin/bash", "-c", cmd)
 	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		if err := util.TeePrefix(util.ErrPrefix, errPipe, stderr, glog.Infof); err != nil {
-			glog.Errorf("tee stderr: %v", err)
+	if len(ew) > 0 {
+		errPipe, err := c.StderrPipe()
+		if err != nil {
+			return nil, errors.Wrap(err, "stderr")
 		}
-		wg.Done()
-	}()
-	go func() {
-		if err := util.TeePrefix(util.OutPrefix, outPipe, stdout, glog.Infof); err != nil {
-			glog.Errorf("tee stdout: %v", err)
-		}
-		wg.Done()
-	}()
+		wg.Add(1)
+		go func() {
+			if err := LogTee(l.config.StderrLogPrefix, l.config.Logger, errPipe, ew...); err != nil {
+				glog.Errorf("tee stderr: %v", err)
+			}
+			wg.Done()
+		}()
+	}
 
-	err = c.Start()
-	return c, err
+	if len(ow) > 0 {
+		outPipe, err := c.StdoutPipe()
+		if err != nil {
+			return nil, errors.Wrap(err, "stdout")
+		}
+		wg.Add(1)
+		go func() {
+			if err := LogTee(l.config.StdoutLogPrefix, l.config.Logger, outPipe, ow...); err != nil {
+				glog.Errorf("tee stdout: %v", err)
+			}
+			wg.Done()
+		}()
+	}
+	err := c.Start()
+	return &LocalWaiter{wg: wg, cmd: c}, err
 }
 
 // Copy copies a source path to a target path
@@ -127,4 +140,25 @@ func (l *Local) WriteFile(src io.Reader, target string, len int64, perms os.File
 		return err
 	}
 	return f.Close()
+}
+
+// LocalWaiter is returned by Stream so callers can block until completion
+type LocalWaiter struct {
+	wg  sync.WaitGroup
+	cmd *exec.Cmd
+}
+
+// ExitCode returns the exit code from the stream. Only usable after Wait()
+func (lw *LocalWaiter) ExitCode() int {
+	return lw.cmd.ProcessState.ExitCode()
+}
+
+// Wait waits until the command and byte buffers are closed
+func (lw *LocalWaiter) Wait() error {
+	err := lw.cmd.Wait()
+	if err != nil {
+		return err
+	}
+	lw.wg.Wait()
+	return nil
 }

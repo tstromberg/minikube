@@ -24,11 +24,11 @@ limitations under the License.
 //	panic("in the disco")
 // }
 //
-// res, err := s.Result()
-// fmt.Println(res.Stdout)
+// o, err := s.Output()
+// fmt.Println(o.Stdout)
 //
 //
-package command
+package shell
 
 import (
 	"bufio"
@@ -36,32 +36,40 @@ import (
 	"io"
 	"os"
 	"sync"
+
+	"github.com/golang/glog"
+	"golang.org/x/crypto/ssh"
+)
+
+const (
+	stderrLogPrefix = "! "
+	stdoutLogPrefix = "> "
 )
 
 // Runner is an interface for running a command
 type Runner interface {
 	// Run executes a command
 	Run(cmd string) error
-	// Result executes a command returning results and output
-	Result(cmd string) (Result, error)
+	// Result executes a command returning output
+	Output(cmd string) (*OutResult, error)
 }
 
-// Result contains output and an exit code
-type Result struct {
-	// ExitStatus is the exit code from the command
-	ExitStatus int
+// OutResult contains output and an exit code
+type OutResult struct {
 	// Stdout is the bytes sent to stdout - useful for parsing
 	Stdout []byte
 	// Stderr is the bytes sent to stderr
 	Stderr []byte
 	// Combined is a combined stream of bytes sent to stdout/stderr - useful for error reporting.
 	Combined []byte
+	// ExitCode is the exit code from the command
+	ExitCode int
 }
 
 // Streamer is an interface for running a command with streaming output
 type Streamer interface {
 	// Stream executes a command, streaming stdout, stderr appropriately
-	Stream(cmd string, stdout io.Writer, stderr io.Writer) (Waiter, error)
+	Stream(cmd string, opts StreamOpts) (Waiter, error)
 }
 
 // Writer is an interface for writing content to the destination
@@ -72,9 +80,10 @@ type Writer interface {
 	WriteFile(src io.Reader, target string, len int64, perms os.FileMode) error
 }
 
-// Waiter is returned by Stream
+// Waiter is returned by Stream so that callers may block until the command has completed
 type Waiter interface {
 	Wait() error
+	ExitCode() int
 }
 
 // Commander is the complete interface to exec commands
@@ -102,6 +111,32 @@ func (w *singleWriter) Bytes() []byte {
 	return w.b.Bytes()
 }
 
+type logger func(format string, args ...interface{})
+
+type Config struct {
+	SSHClient       *ssh.Client
+	Logger          logger
+	StdoutLogPrefix string
+	StderrLogPrefix string
+}
+
+// NewShell returns the appropriately configured Runner/Commander
+func NewShell(c Config) Commander {
+	// if c.SSHClient  != nil {
+	// 	return SSH{config: c}
+	// }
+	if c.StdoutLogPrefix == "" {
+		c.StdoutLogPrefix = stdoutLogPrefix
+	}
+	if c.StderrLogPrefix == "" {
+		c.StderrLogPrefix = stderrLogPrefix
+	}
+	if c.Logger == nil {
+		c.Logger = glog.Infof
+	}
+	return NewLocal(c)
+}
+
 // copyToWriteFile adapts the Copy interface to the WriteFile interface
 func copyToWriteFile(src string, target string, perms os.FileMode, w Writer) error {
 	f, err := os.Open(src)
@@ -117,16 +152,25 @@ func copyToWriteFile(src string, target string, perms os.FileMode, w Writer) err
 	return w.WriteFile(f, target, fi.Size(), perms)
 }
 
-// TeePrefix copies bytes from a reader to writer, logging each new line.
-func TeePrefix(prefix string, r io.Reader, w io.Writer, logger func(format string, args ...interface{})) error {
+// StreamOpts are options to pass to Stream
+type StreamOpts struct {
+	Stdout   io.Writer
+	Stderr   io.Writer
+	Combined io.Writer
+}
+
+// LogTee copies bytes from a reader to multiple writers, logging each new line.
+func LogTee(prefix string, logger func(format string, args ...interface{}), r io.Reader, writers ...io.Writer) error {
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanBytes)
 	var line bytes.Buffer
 
 	for scanner.Scan() {
 		b := scanner.Bytes()
-		if _, err := w.Write(b); err != nil {
-			return err
+		for _, w := range writers {
+			if _, err := w.Write(b); err != nil {
+				return err
+			}
 		}
 
 		if bytes.IndexAny(b, "\r\n") == 0 {

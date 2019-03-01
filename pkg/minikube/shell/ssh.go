@@ -14,11 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rexec
+package shell
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -27,12 +29,16 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
-	"k8s.io/minikube/pkg/util"
 )
+
+// NewSSH returns a new remote shell via SSH
+func NewSSH(c Config) *Local {
+	return &Local{config: c}
+}
 
 // SSH runs commands through SSH, implementing the FullRunner interface.
 type SSH struct {
-	c sshClient
+	config Config
 }
 
 // sshClient implements the ssh.Client methods used by this package
@@ -51,69 +57,54 @@ type sshSession interface {
 	Wait() error
 }
 
-// NewSSH returns a new SSH implementation
-func NewSSH(c sshClient) *SSH {
-	return &SSH{c}
-}
-
 // Run executes a command
 func (s *SSH) Run(cmd string) error {
-	_, stderr, err := s.Out(cmd)
-	if err != nil {
-		if len(stderr) > 0 {
-			return errors.Wrap(err, fmt.Sprintf("%s: %s", cmd, stderr))
-		}
-		return errors.Wrap(err, cmd)
-	}
+	_, err := s.Output(cmd)
 	return err
 }
 
-// Out executes a command, returning stdout, stderr.
-func (s *SSH) Out(cmd string) ([]byte, []byte, error) {
-	return streamToOut(cmd, s)
-}
+// Out executes a command, returning output
+func (s *SSH) Output(cmd string) (*OutResult, error) {
+	var combined singleWriter
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
 
-// Combined executes a command, returning a combined stdout and stderr
-func (s *SSH) Combined(cmd string) ([]byte, error) {
-	return streamToCombined(cmd, s)
+	glog.Infof("SSH Out: %s", cmd)
+	sess, err := s.config.SSHClient.NewSession()
+	if err != nil {
+		return nil, errors.Wrap(err, "ssh")
+	}
+	defer sess.Close()
+
+	_, err = streamCmd(s.config, sess, &stdout, ioutil.NopCloser(&stderr), &combined)
+	if err != nil {
+		return nil, err
+	}
+
+	err = sess.Wait()
+	return &OutResult{
+		Stdout:   stdout.Bytes(),
+		Stderr:   stderr.Bytes(),
+		Combined: combined.Bytes(),
+		ExitCode: -1,
+	}, err
 }
 
 // Stream executes a command, writing stdout and stderr appropriately.
 func (s *SSH) Stream(cmd string, stdout io.Writer, stderr io.Writer) (Waiter, error) {
-	glog.Infof("SSH: %s", cmd)
-	sess, err := s.c.NewSession()
+	glog.Infof("SSH Stream: %s", cmd)
+	sess, err := s.config.SSHClient.NewSession()
 	if err != nil {
-		return sess, errors.Wrap(err, "ssh")
+		return nil, errors.Wrap(err, "ssh")
 	}
 	defer sess.Close()
 
-	outPipe, err := sess.StdoutPipe()
+	_, err = streamCmd(s.config, sess, stdout, stderr, nil)
 	if err != nil {
-		return sess, errors.Wrap(err, "stdout")
+		return nil, err
 	}
-
-	errPipe, err := sess.StderrPipe()
-	if err != nil {
-		return sess, errors.Wrap(err, "stderr")
-	}
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		if err := util.TeePrefix(util.ErrPrefix, errPipe, stderr, glog.Infof); err != nil {
-			glog.Errorf("tee stderr: %v", err)
-		}
-		wg.Done()
-	}()
-	go func() {
-		if err := util.TeePrefix(util.OutPrefix, outPipe, stdout, glog.Infof); err != nil {
-			glog.Errorf("tee stdout: %v", err)
-		}
-		wg.Done()
-	}()
-
-	err = sess.Start(cmd)
-	return sess, err
+	err := sess.Start(cmd)
+	return &SSHWaiter{sess: sess, cmd: c}, err
 }
 
 // Copy copies a source path to a target path
@@ -124,7 +115,7 @@ func (s *SSH) Copy(src string, target string, perms os.FileMode) error {
 // WriteFile writes content to a target path
 func (s *SSH) WriteFile(src io.Reader, target string, len int64, perms os.FileMode) error {
 	glog.Infof("Writing %d bytes to %s via ssh (perm=%s)", len, target, perms)
-	sess, err := s.c.NewSession()
+	sess, err := s.config.SSHClient.NewSession()
 	if err != nil {
 		return errors.Wrap(err, "ssh")
 	}
@@ -162,4 +153,26 @@ func (s *SSH) WriteFile(src io.Reader, target string, len int64, perms os.FileMo
 	}
 
 	return sess.Close()
+}
+
+// SSHWaiter is returned by Stream so callers can block until completion
+type SSHWaiter struct {
+	wg   sync.WaitGroup
+	sess *ssh.Session
+}
+
+// ExitCode returns the exit code from the stream. Only usable after Wait()
+func (sw *SSHWaiter) ExitCode() int {
+	// not yet implemented
+	return -1
+}
+
+// Wait waits until the command and byte buffers are closed
+func (sw *SSHWaiter) Wait() error {
+	err := sw.sess.Wait()
+	if err != nil {
+		return err
+	}
+	sw.wg.Wait()
+	return nil
 }
