@@ -165,9 +165,8 @@ func setupViper() {
 	setFlagsUsingViper()
 }
 
-// GetClusterBootstrapper returns a new bootstrapper for the cluster
-func GetClusterBootstrapper(api libmachine.API, bootstrapperName string) (bootstrapper.Bootstrapper, error) {
-	var b bootstrapper.Bootstrapper
+// NewBootstrapper returns a new bootstrapper for the cluster
+func NewBootstrapper(api libmachine.API, bootstrapperName string) (bootstrapper.Bootstrapper, error) {	var b bootstrapper.Bootstrapper
 	var err error
 	switch bootstrapperName {
 	case bootstrapper.BootstrapperTypeKubeadm:

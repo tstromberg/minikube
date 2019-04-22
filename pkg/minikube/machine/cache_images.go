@@ -52,7 +52,7 @@ var loadImageLock sync.Mutex
 func CacheImagesForBootstrapper(imageRepository string, version string, clusterBootstrapper string) error {
 	images := bootstrapper.GetCachedImageList(imageRepository, version, clusterBootstrapper)
 
-	if err := CacheImages(images, constants.ImageCacheDir); err != nil {
+	if err := CacheImages(images, cache.Dir(cache.ImagesBucket)); err != nil {
 		return errors.Wrapf(err, "Caching images for %s", clusterBootstrapper)
 	}
 
@@ -286,8 +286,8 @@ func getDstPath(image, dst string) (string, error) {
 	return dst, nil
 }
 
-// CacheImage caches an image
-func CacheImage(image, dst string) error {
+// cacheImage caches an image
+func cacheImage(image, dst string) error {
 	glog.Infof("Attempting to cache image: %s at %s\n", image, dst)
 	if _, err := os.Stat(dst); err == nil {
 		return nil

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -211,165 +210,12 @@ const (
 	DefaultMountVersion = "9p2000.L"
 )
 
-// GetKubernetesReleaseURL gets the location of a kubernetes client
-func GetKubernetesReleaseURL(binaryName, version string) string {
-	return fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/linux/%s/%s", version, runtime.GOARCH, binaryName)
-}
-
-// GetKubernetesReleaseURLSHA1 gets the location of a kubernetes client checksum
-func GetKubernetesReleaseURLSHA1(binaryName, version string) string {
-	return fmt.Sprintf("%s.sha1", GetKubernetesReleaseURL(binaryName, version))
-}
-
 // IsMinikubeChildProcess is the name of "is minikube child process" variable
 const IsMinikubeChildProcess = "IS_MINIKUBE_CHILD_PROCESS"
 
 // DriverNone is the none driver
 const DriverNone = "none"
 
-// FileScheme is the file scheme
-const FileScheme = "file"
-
-// GetKubeadmCachedBinaries gets the binaries to cache for kubeadm
-func GetKubeadmCachedBinaries() []string {
-	return []string{"kubelet", "kubeadm"}
-}
-
-// GetKubeadmCachedImages gets the images to cache for kubeadm for a version
-func GetKubeadmCachedImages(imageRepository string, kubernetesVersionStr string) (string, []string) {
-	minikubeRepository := imageRepository
-	if imageRepository == "" {
-		imageRepository = "k8s.gcr.io"
-		minikubeRepository = "gcr.io/k8s-minikube"
-	}
-	if !strings.HasSuffix(imageRepository, "/") {
-		imageRepository += "/"
-	}
-	if !strings.HasSuffix(minikubeRepository, "/") {
-		minikubeRepository += "/"
-	}
-
-	v1_14plus := semver.MustParseRange(">=1.14.0")
-	v1_13 := semver.MustParseRange(">=1.13.0 <1.14.0")
-	v1_12 := semver.MustParseRange(">=1.12.0 <1.13.0")
-	v1_11 := semver.MustParseRange(">=1.11.0 <1.12.0")
-	v1_10 := semver.MustParseRange(">=1.10.0 <1.11.0")
-	v1_9 := semver.MustParseRange(">=1.9.0 <1.10.0")
-	v1_8 := semver.MustParseRange(">=1.8.0 <1.9.0")
-	v1_12plus := semver.MustParseRange(">=1.12.0")
-
-	kubernetesVersion, err := semver.Make(strings.TrimPrefix(kubernetesVersionStr, minikubeVersion.VersionPrefix))
-	if err != nil {
-		glog.Errorln("Error parsing version semver: ", err)
-	}
-
-	var images []string
-	if v1_12plus(kubernetesVersion) {
-		images = append(images, []string{
-			imageRepository + "kube-proxy:" + kubernetesVersionStr,
-			imageRepository + "kube-scheduler:" + kubernetesVersionStr,
-			imageRepository + "kube-controller-manager:" + kubernetesVersionStr,
-			imageRepository + "kube-apiserver:" + kubernetesVersionStr,
-		}...)
-	} else {
-		images = append(images, []string{
-			imageRepository + "kube-proxy-amd64:" + kubernetesVersionStr,
-			imageRepository + "kube-scheduler-amd64:" + kubernetesVersionStr,
-			imageRepository + "kube-controller-manager-amd64:" + kubernetesVersionStr,
-			imageRepository + "kube-apiserver-amd64:" + kubernetesVersionStr,
-		}...)
-	}
-
-	var podInfraContainerImage string
-	if v1_14plus(kubernetesVersion) {
-		podInfraContainerImage = imageRepository + "pause:3.1"
-		images = append(images, []string{
-			podInfraContainerImage,
-			imageRepository + "k8s-dns-kube-dns-amd64:1.14.13",
-			imageRepository + "k8s-dns-dnsmasq-nanny-amd64:1.14.13",
-			imageRepository + "k8s-dns-sidecar-amd64:1.14.13",
-			imageRepository + "etcd:3.3.10",
-			imageRepository + "coredns:1.3.1",
-		}...)
-
-	} else if v1_13(kubernetesVersion) {
-		podInfraContainerImage = imageRepository + "pause:3.1"
-		images = append(images, []string{
-			podInfraContainerImage,
-			imageRepository + "k8s-dns-kube-dns-amd64:1.14.8",
-			imageRepository + "k8s-dns-dnsmasq-nanny-amd64:1.14.8",
-			imageRepository + "k8s-dns-sidecar-amd64:1.14.8",
-			imageRepository + "etcd:3.2.24",
-			imageRepository + "coredns:1.2.6",
-		}...)
-
-	} else if v1_12(kubernetesVersion) {
-		podInfraContainerImage = imageRepository + "pause:3.1"
-		images = append(images, []string{
-			podInfraContainerImage,
-			imageRepository + "k8s-dns-kube-dns-amd64:1.14.8",
-			imageRepository + "k8s-dns-dnsmasq-nanny-amd64:1.14.8",
-			imageRepository + "k8s-dns-sidecar-amd64:1.14.8",
-			imageRepository + "etcd:3.2.24",
-			imageRepository + "coredns:1.2.2",
-		}...)
-
-	} else if v1_11(kubernetesVersion) {
-		podInfraContainerImage = imageRepository + "pause:3.1"
-		images = append(images, []string{
-			podInfraContainerImage,
-			imageRepository + "k8s-dns-kube-dns-amd64:1.14.8",
-			imageRepository + "k8s-dns-dnsmasq-nanny-amd64:1.14.8",
-			imageRepository + "k8s-dns-sidecar-amd64:1.14.8",
-			imageRepository + "etcd-amd64:3.2.18",
-			imageRepository + "coredns:1.1.3",
-		}...)
-
-	} else if v1_10(kubernetesVersion) {
-		podInfraContainerImage = imageRepository + "pause:3.1"
-		images = append(images, []string{
-			podInfraContainerImage,
-			imageRepository + "k8s-dns-kube-dns-amd64:1.14.8",
-			imageRepository + "k8s-dns-dnsmasq-nanny-amd64:1.14.8",
-			imageRepository + "k8s-dns-sidecar-amd64:1.14.8",
-			imageRepository + "etcd-amd64:3.1.12",
-		}...)
-
-	} else if v1_9(kubernetesVersion) {
-		podInfraContainerImage = imageRepository + "pause:3.0"
-		images = append(images, []string{
-			podInfraContainerImage,
-			imageRepository + "k8s-dns-kube-dns-amd64:1.14.7",
-			imageRepository + "k8s-dns-dnsmasq-nanny-amd64:1.14.7",
-			imageRepository + "k8s-dns-sidecar-amd64:1.14.7",
-			imageRepository + "etcd-amd64:3.1.10",
-		}...)
-
-	} else if v1_8(kubernetesVersion) {
-		podInfraContainerImage = imageRepository + "pause:3.0"
-		images = append(images, []string{
-			podInfraContainerImage,
-			imageRepository + "k8s-dns-kube-dns-amd64:1.14.5",
-			imageRepository + "k8s-dns-dnsmasq-nanny-amd64:1.14.5",
-			imageRepository + "k8s-dns-sidecar-amd64:1.14.5",
-			imageRepository + "etcd-amd64:3.0.17",
-		}...)
-
-	} else {
-		podInfraContainerImage = imageRepository + "pause:3.0"
-	}
-
-	images = append(images, []string{
-		imageRepository + "kubernetes-dashboard-amd64:v1.10.1",
-		imageRepository + "kube-addon-manager:v9.0",
-		minikubeRepository + "storage-provisioner:v1.8.1",
-	}...)
-
-	return podInfraContainerImage, images
-}
-
-// ImageCacheDir is the path to the image cache directory
-var ImageCacheDir = MakeMiniPath("cache", "images")
 
 const (
 	// GvisorFilesPath is the path to the gvisor files saved by go-bindata

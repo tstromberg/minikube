@@ -33,7 +33,7 @@ func init() {
 
 func createVMwareHost(config cfg.MachineConfig) interface{} {
 	d := vmwcfg.NewConfig(cfg.GetMachineName(), constants.GetMinipath())
-	d.Boot2DockerURL = config.Downloader.GetISOFileURI(config.MinikubeISO)
+	d.Boot2DockerURL = config.MinikubeISO
 	d.Memory = config.Memory
 	d.CPU = config.CPUs
 	d.DiskSize = config.DiskSize

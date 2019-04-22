@@ -64,7 +64,7 @@ func createKVMHost(config cfg.MachineConfig) interface{} {
 		CPU:            config.CPUs,
 		Network:        config.KvmNetwork,
 		PrivateNetwork: "docker-machines",
-		Boot2DockerURL: config.Downloader.GetISOFileURI(config.MinikubeISO),
+		Boot2DockerURL: config.MinikubeISO,
 		DiskSize:       config.DiskSize,
 		DiskPath:       filepath.Join(constants.GetMinipath(), "machines", cfg.GetMachineName(), fmt.Sprintf("%s.rawdisk", cfg.GetMachineName())),
 		ISO:            filepath.Join(constants.GetMinipath(), "machines", cfg.GetMachineName(), "boot2docker.iso"),

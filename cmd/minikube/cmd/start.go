@@ -171,7 +171,9 @@ func runStart(cmd *cobra.Command, args []string) {
 		exit.WithCode(exit.Data, "Unable to load config: %v", err)
 	}
 	k8sVersion := validateKubernetesVersions(oldConfig)
-	config, err := generateConfig(cmd, k8sVersion)
+
+	isoPath := downloadISO(config.VMDriver, viper.GetString(isoURL))
+	config, err := generateConfig(cmd, k8sVersion, isoPath)
 	if err != nil {
 		exit.WithError("Failed to generate config", err)
 	}
@@ -199,7 +201,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		if err := cluster.CacheISO(config.MachineConfig); err != nil {
 			exit.WithError("Failed to cache ISO", err)
 		}
-		if err := doCacheBinaries(k8sVersion); err != nil {
+		if err := machine.CacheBinariesForBootstrapper(k8sVersion, viper.GetString(cmdcfg.Bootstrapper)); err != nil {
 			exit.WithError("Failed to cache binaries", err)
 		}
 		waitCacheImages(&cacheGroup)
@@ -263,6 +265,31 @@ func runStart(cmd *cobra.Command, args []string) {
 	console.OutStyle("ready", "Done! Thank you for using minikube!")
 }
 
+// downloadISO downloads the minikube ISO if required. Returns a file:// URI.
+func downloadISO(driver string, rawURL string) string {
+	if driver == "none" {
+		return ""
+	}
+	opts := &cache.Options{
+		Progress: true,
+		Bucket:   cache.ISOBucket,
+	}
+	if rawURL == constants.DefaultISOURL {
+		opts.ChecksumURL = constants.DefaultISOSHAURL
+	}
+
+	uri := cache.URI(rawURL, opts)
+	if path != "" {
+		return uri
+	}
+	console.OutStyle("iso-download", "Downloading %s ...", rawURL)
+	uri, err := cache.GetURI()
+	if err != nil {
+		exit.WithError("unable to cache ISO", err)
+	}
+	return uri
+}
+
 // validateConfig validates the supplied configuration against known bad combinations
 func validateConfig() {
 	diskSizeMB := pkgutil.CalculateDiskSizeInMB(viper.GetString(humanReadableDiskSize))
@@ -278,11 +305,6 @@ func validateConfig() {
 	}
 }
 
-// doCacheBinaries caches Kubernetes binaries in the foreground
-func doCacheBinaries(k8sVersion string) error {
-	return machine.CacheBinariesForBootstrapper(k8sVersion, viper.GetString(cmdcfg.Bootstrapper))
-}
-
 // beginCacheImages caches Docker images in the background
 func beginCacheImages(g *errgroup.Group, k8sVersion string) {
 	if !viper.GetBool(cacheImages) {
@@ -295,7 +317,7 @@ func beginCacheImages(g *errgroup.Group, k8sVersion string) {
 }
 
 // generateConfig generates cfg.Config based on flags and supplied arguments
-func generateConfig(cmd *cobra.Command, k8sVersion string) (cfg.Config, error) {
+func generateConfig(cmd *cobra.Command, k8sVersion string, cachedISO string) (cfg.Config, error) {
 	r, err := cruntime.New(cruntime.Config{Type: viper.GetString(containerRuntime)})
 	if err != nil {
 		return cfg.Config{}, err
@@ -324,7 +346,7 @@ func generateConfig(cmd *cobra.Command, k8sVersion string) (cfg.Config, error) {
 
 	cfg := cfg.Config{
 		MachineConfig: cfg.MachineConfig{
-			MinikubeISO:         viper.GetString(isoURL),
+			MinikubeISO:         cachedISO,
 			Memory:              viper.GetInt(memory),
 			CPUs:                viper.GetInt(cpus),
 			DiskSize:            pkgutil.CalculateDiskSizeInMB(viper.GetString(humanReadableDiskSize)),
@@ -342,7 +364,6 @@ func generateConfig(cmd *cobra.Command, k8sVersion string) (cfg.Config, error) {
 			HostOnlyCIDR:        viper.GetString(hostOnlyCIDR),
 			HypervVirtualSwitch: viper.GetString(hypervVirtualSwitch),
 			KvmNetwork:          viper.GetString(kvmNetwork),
-			Downloader:          pkgutil.DefaultDownloader{},
 			DisableDriverMounts: viper.GetBool(disableDriverMounts),
 			UUID:                viper.GetString(uuid),
 			GPU:                 viper.GetBool(gpu),

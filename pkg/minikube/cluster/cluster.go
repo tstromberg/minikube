@@ -58,16 +58,6 @@ func init() {
 	ssh.SetDefaultClient(ssh.Native)
 }
 
-// CacheISO downloads and caches ISO.
-func CacheISO(config cfg.MachineConfig) error {
-	if config.VMDriver != "none" {
-		if err := config.Downloader.CacheMinikubeISOFromURL(config.MinikubeISO); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // StartHost starts a host VM.
 func StartHost(api libmachine.API, config cfg.MachineConfig) (*host.Host, error) {
 	exists, err := api.Exists(cfg.GetMachineName())
@@ -288,11 +278,6 @@ func createHost(api libmachine.API, config cfg.MachineConfig) (*host.Host, error
 			exit.Usage("unsupported driver: %s", config.VMDriver)
 		}
 		exit.WithError("error getting driver", err)
-	}
-
-	err = CacheISO(config)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to cache ISO")
 	}
 
 	driver := def.ConfigCreator(config)

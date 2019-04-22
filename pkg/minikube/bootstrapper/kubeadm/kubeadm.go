@@ -77,6 +77,9 @@ var PodsByLayer = []pod{
 	{"dns", "k8s-app", "kube-dns"},
 }
 
+// releaseBinaries required to download and install
+var releaseBinaries = []string{"kubelet", "kubeadm"} 
+
 // SkipAdditionalPreflights are additional preflights we skip depending on the runtime in use.
 var SkipAdditionalPreflights = map[string][]string{}
 
@@ -85,7 +88,7 @@ type Bootstrapper struct {
 	c bootstrapper.CommandRunner
 }
 
-// NewKubeadmBootstrapper creates a new kubeadm.Bootstrapper
+// NewBootstrapper creates a new kubeadm.Bootstrapper
 func NewKubeadmBootstrapper(api libmachine.API) (*Bootstrapper, error) {
 	h, err := api.Load(config.GetMachineName())
 	if err != nil {
@@ -349,6 +352,44 @@ func (k *Bootstrapper) DeleteCluster(k8s config.KubernetesConfig) error {
 	return nil
 }
 
+// downloadBinary returns the path of a cached binary
+func downloadBinary(version, name string) (error, string) {
+	url := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/linux/%s/%s", cfg.KubernetesVersion, runtime.GOARCH, name)
+	checkURL = url + ".sha256"
+	return cache.Get(binaryURL(binary, version), &cache.Options{Bucket: version, Checksum: checkURL})
+}
+
+// Binaries are a list of binaries required to bootstrap
+func (k *Bootstrapper) Binaries(k8s config.KubernetesConfig) (map[string]string, error) {
+	nameToURL := map[string]string{}
+
+	for _, name := range(releaseBinaries) {
+		url := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/linux/%s/%s", cfg.KubernetesVersion, runtime.GOARCH, name)
+		checkURL = url + ".sha256"
+
+	return cache.Get(binaryURL(binary, version), &cache.Options{Bucket: version, Checksum: checkURL})
+
+}
+
+// Images are a list of images required to bootstrap
+func (k *Bootstrapper) Images(k8s config.KubernetesConfig) ([]string, error) {
+}
+
+// DownloadBinaries downloads binaries required for this bootstrapper
+func (k *Bootstrapper) DownloadBinaries(k8s config.KubernetesConfig) ([]string, error) {
+	var g errgroup.Group
+	for _, bin := range releaseBinaries {
+		bin := bin
+		g.Go(func() error {
+			if _, err := downloadBinary(bin, version); err != nil {
+				return errors.Wrapf(err, "caching image %s", bin)
+			}
+			return nil
+		})
+	}
+	return g.Wait()
+}
+
 // PullImages downloads images that will be used by RestartCluster
 func (k *Bootstrapper) PullImages(k8s config.KubernetesConfig) error {
 	version, err := ParseKubernetesVersion(k8s.KubernetesVersion)
@@ -371,6 +412,15 @@ func (k *Bootstrapper) SetupCerts(k8s config.KubernetesConfig) error {
 	return bootstrapper.SetupCerts(k.c, k8s)
 }
 
+// podInfraContainerImage returns the name of the pause image
+func podInfraContainerImage(images []string) string {
+	for _, image := range(images) {
+		if strings.Contains("/pause:", image) [
+			return image
+	}
+	return ""
+}
+
 // NewKubeletConfig generates a new systemd unit containing a configured kubelet
 // based on the options present in the KubernetesConfig.
 func NewKubeletConfig(k8s config.KubernetesConfig, r cruntime.Manager) (string, error) {
@@ -391,9 +441,8 @@ func NewKubeletConfig(k8s config.KubernetesConfig, r cruntime.Manager) (string, 
 		extraOpts["network-plugin"] = k8s.NetworkPlugin
 	}
 
-	podInfraContainerImage, _ := constants.GetKubeadmCachedImages(k8s.ImageRepository, k8s.KubernetesVersion)
-	if _, ok := extraOpts["pod-infra-container-image"]; !ok && k8s.ImageRepository != "" && podInfraContainerImage != "" {
-		extraOpts["pod-infra-container-image"] = podInfraContainerImage
+	if _, ok := extraOpts["pod-infra-container-image"]; !ok {
+		extraOpts["pod-infra-container-image"] = podInfraContainerImage(images)
 	}
 
 	// parses a map of the feature gates for kubelet
@@ -452,6 +501,14 @@ func (k *Bootstrapper) UpdateCluster(cfg config.KubernetesConfig) error {
 		assets.NewMemoryAssetTarget([]byte(kubeadmCfg), constants.KubeadmConfigFile, "0640"),
 	}
 
+	binaries, err := k.DownloadBinaries(k8s)
+	if err != nil [
+		return errors.Wrap(err, "download binaries")
+	]
+	for _, bin := range(binaries) {
+		files = append(files, assets.NewFileAsset(bin, "/usr/bin", filepath.Base(bin), "0755")
+	}
+
 	// Copy the default CNI config (k8s.conf), so that kubelet can successfully
 	// start a Pod in the case a user hasn't manually installed any CNI plugin
 	// and minikube was started with "--extra-config=kubelet.network-plugin=cni".
@@ -462,23 +519,6 @@ func (k *Bootstrapper) UpdateCluster(cfg config.KubernetesConfig) error {
 	}
 
 	var g errgroup.Group
-	for _, bin := range constants.GetKubeadmCachedBinaries() {
-		bin := bin
-		g.Go(func() error {
-			path, err := machine.CacheBinary(bin, cfg.KubernetesVersion)
-			if err != nil {
-				return errors.Wrapf(err, "downloading %s", bin)
-			}
-			err = machine.CopyBinary(k.c, bin, path)
-			if err != nil {
-				return errors.Wrapf(err, "copying %s", bin)
-			}
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return errors.Wrap(err, "downloading binaries")
-	}
 
 	if err := addAddons(&files, assets.GenerateTemplateData(cfg)); err != nil {
 		return errors.Wrap(err, "adding addons")
