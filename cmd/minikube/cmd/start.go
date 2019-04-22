@@ -228,12 +228,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	cr := configureRuntimes(host, runner)
 
 	// prepareHostEnvironment uses the downloaded images, so we need to wait for background task completion.
-	if viper.GetBool(cacheImages) {
-		console.OutStyle("waiting", "Waiting for image downloads to complete ...")
-		if err := cacheGroup.Wait(); err != nil {
-			glog.Errorln("Error caching images: ", err)
-		}
-	}
+	waitCacheImages(&cacheGroup)
 
 	bs := prepareHostEnvironment(m, config.KubernetesConfig)
 
@@ -253,16 +248,20 @@ func runStart(cmd *cobra.Command, args []string) {
 		prepareNone()
 	}
 
+	showKubectlConnectInfo(kubeconfig)
+	console.OutStyle("ready", "Done! Thank you for using minikube!")
+}
+
+func showKubectlConnectInfo(kubeconfig *pkgutil.KubeConfigSetup) {
 	if kubeconfig.KeepContext {
 		console.OutStyle("kubectl", "To connect to this cluster, use: kubectl --context=%s", kubeconfig.ClusterName)
 	} else {
 		console.OutStyle("kubectl", "kubectl is now configured to use %q", cfg.GetMachineName())
 	}
-	_, err = exec.LookPath("kubectl")
+	_, err := exec.LookPath("kubectl")
 	if err != nil {
 		console.OutStyle("tip", "For best results, install kubectl: https://kubernetes.io/docs/tasks/tools/install-kubectl/")
 	}
-	console.OutStyle("ready", "Done! Thank you for using minikube!")
 }
 
 // downloadISO downloads the minikube ISO if required. Returns a file:// URI.
@@ -314,6 +313,17 @@ func beginCacheImages(g *errgroup.Group, k8sVersion string) {
 	g.Go(func() error {
 		return machine.CacheImagesForBootstrapper(viper.GetString(imageRepository), k8sVersion, viper.GetString(cmdcfg.Bootstrapper))
 	})
+}
+
+// waitCacheImages blocks until the image cache jobs complete
+func waitCacheImages(g *errgroup.Group) {
+	if !viper.GetBool(cacheImages) {
+		return
+	}
+	console.OutStyle("waiting", "Waiting for image downloads to complete ...")
+	if err := g.Wait(); err != nil {
+		glog.Errorln("Error caching images: ", err)
+	}
 }
 
 // generateConfig generates cfg.Config based on flags and supplied arguments

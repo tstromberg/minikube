@@ -36,8 +36,26 @@ type Options struct {
 	Progress bool
 }
 
+// Image returns a local path to a locally pulled Docker image.
+func Image() (string, error) {
+}
+
+// ReleaseBinary returns the local path to a Kubernetes release binary
+func ReleaseBinary(binary, version string) (string, error) {
+	url := constants.GetKubernetesReleaseURL(binary, version)
+	return Get(url, &Options{
+		options.ChecksumURL = constants.GetKubernetesReleaseURLSHA1(binary, version)
+	}
+}
+
+// ISO returns the path to a locally stored ISO file.
+func ISO() (string, error) {
+
+}
+
 // Dir returns the path to where cache objects are held.
 func Dir(bucket string) string {
+	// TODO: support XDG paths
 	d := filepath.Join(constants.GetMinipath(), "cache")
 	if bucket == "" {
 		return d
@@ -93,6 +111,8 @@ func Get(rawURL string, o *Options) (string, error) {
 	}
 	return p, nil
 }
+
+
 
 // localPath returns a path to where an item may be stored within the cache.
 func localPath(rawURL string, o *Options) string {

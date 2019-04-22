@@ -20,11 +20,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
-	"github.com/blang/semver"
-	"github.com/golang/glog"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	minikubeVersion "k8s.io/minikube/pkg/version"
@@ -215,7 +212,6 @@ const IsMinikubeChildProcess = "IS_MINIKUBE_CHILD_PROCESS"
 
 // DriverNone is the none driver
 const DriverNone = "none"
-
 
 const (
 	// GvisorFilesPath is the path to the gvisor files saved by go-bindata
