@@ -44,6 +44,35 @@ import (
 	"k8s.io/minikube/pkg/util"
 )
 
+// enum to differentiate kubeadm command line parameters from kubeadm config file parameters (see the
+// KubeadmExtraArgsWhitelist variable below for more info)
+const (
+	KubeadmCmdParam    = iota
+	KubeadmConfigParam = iota
+)
+
+// KubeadmExtraArgsWhitelist is a whitelist of supported kubeadm params that can be supplied to kubeadm through
+// minikube's ExtraArgs parameter. The list is split into two parts - params that can be supplied as flags on the
+// command line and params that have to be inserted into the kubeadm config file. This is because of a kubeadm
+// constraint which allows only certain params to be provided from the command line when the --config parameter
+// is specified
+var KubeadmExtraArgsWhitelist = map[int][]string{
+	KubeadmCmdParam: {
+		"ignore-preflight-errors",
+		"dry-run",
+		"kubeconfig",
+		"kubeconfig-dir",
+		"node-name",
+		"cri-socket",
+		"experimental-upload-certs",
+		"certificate-key",
+		"rootfs",
+	},
+	KubeadmConfigParam: {
+		"pod-network-cidr",
+	},
+}
+
 // SkipPreflights are preflight checks we always skip.
 var SkipPreflights = []string{
 	// We use --ignore-preflight-errors=DirAvailable since we have our own custom addons
@@ -123,6 +152,7 @@ func (k *Bootstrapper) GetAPIServerStatus(ip net.IP, apiserverPort int) (string,
 	url := fmt.Sprintf("https://%s:%d/healthz", ip, apiserverPort)
 	// To avoid: x509: certificate signed by unknown authority
 	tr := &http.Transport{
+		Proxy:           nil, // To avoid connectiv issue if http(s)_proxy is set.
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: tr}
@@ -163,6 +193,21 @@ func (k *Bootstrapper) LogCommands(o bootstrapper.LogOptions) map[string]string 
 	}
 }
 
+// createFlagsFromExtraArgs converts kubeadm extra args into flags to be supplied from the commad linne
+func createFlagsFromExtraArgs(extraOptions util.ExtraOptionSlice) string {
+	kubeadmExtraOpts := extraOptions.AsMap().Get(Kubeadm)
+
+	// kubeadm allows only a small set of parameters to be supplied from the command line when the --config param
+	// is specified, here we remove those that are not allowed
+	for opt := range kubeadmExtraOpts {
+		if !util.ContainsString(KubeadmExtraArgsWhitelist[KubeadmCmdParam], opt) {
+			// kubeadmExtraOpts is a copy so safe to delete
+			delete(kubeadmExtraOpts, opt)
+		}
+	}
+	return convertToFlags(kubeadmExtraOpts)
+}
+
 // StartCluster starts the cluster
 func (k *Bootstrapper) StartCluster(k8s config.KubernetesConfig) error {
 	version, err := ParseKubernetesVersion(k8s.KubernetesVersion)
@@ -170,11 +215,7 @@ func (k *Bootstrapper) StartCluster(k8s config.KubernetesConfig) error {
 		return errors.Wrap(err, "parsing kubernetes version")
 	}
 
-	extraOpts, err := ExtraConfigForComponent(Kubeadm, k8s.ExtraOptions, version)
-	if err != nil {
-		return errors.Wrap(err, "generating extra configuration for kubelet")
-	}
-	extraFlags := convertToFlags(extraOpts)
+	extraFlags := createFlagsFromExtraArgs(k8s.ExtraOptions)
 
 	r, err := cruntime.New(cruntime.Config{Type: k8s.ContainerRuntime})
 	if err != nil {
@@ -217,6 +258,31 @@ func (k *Bootstrapper) StartCluster(k8s config.KubernetesConfig) error {
 	glog.Infof("Configuring cluster permissions ...")
 	if err := util.RetryAfter(100, elevateKubeSystemPrivileges, time.Millisecond*500); err != nil {
 		return errors.Wrap(err, "timed out waiting to elevate kube-system RBAC privileges")
+	}
+
+	if err := k.adjustResourceLimits(); err != nil {
+		glog.Warningf("unable to adjust resource limits: %v", err)
+	}
+	return nil
+}
+
+// adjustResourceLimits makes fine adjustments to pod resources that aren't possible via kubeadm config.
+func (k *Bootstrapper) adjustResourceLimits() error {
+	score, err := k.c.CombinedOutput("cat /proc/$(pgrep kube-apiserver)/oom_adj")
+	if err != nil {
+		return errors.Wrap(err, "oom_adj check")
+	}
+	glog.Infof("apiserver oom_adj: %s", score)
+	// oom_adj is already a negative number
+	if strings.HasPrefix(score, "-") {
+		return nil
+	}
+	glog.Infof("adjusting apiserver oom_adj to -10")
+
+	// Prevent the apiserver from OOM'ing before other pods, as it is our gateway into the cluster.
+	// It'd be preferable to do this via Kubernetes, but kubeadm doesn't have a way to set pod QoS.
+	if err := k.c.Run("echo -10 | sudo tee /proc/$(pgrep kube-apiserver)/oom_adj"); err != nil {
+		return errors.Wrap(err, "oom_adj adjust")
 	}
 	return nil
 }
@@ -320,6 +386,10 @@ func (k *Bootstrapper) RestartCluster(k8s config.KubernetesConfig) error {
 	// restart the proxy and coredns
 	if err := k.c.Run(fmt.Sprintf("%s phase addon all --config %s", baseCmd, configPath)); err != nil {
 		return errors.Wrapf(err, "addon phase")
+	}
+
+	if err := k.adjustResourceLimits(); err != nil {
+		glog.Warningf("unable to adjust resource limits: %v", err)
 	}
 	return nil
 }
@@ -475,6 +545,25 @@ sudo systemctl start kubelet
 	return nil
 }
 
+// createExtraComponentConfig generates a map of component to extra args for all of the components except kubeadm
+func createExtraComponentConfig(extraOptions util.ExtraOptionSlice, version semver.Version, componentFeatureArgs string) ([]ComponentExtraArgs, error) {
+	extraArgsSlice, err := NewComponentExtraArgs(extraOptions, version, componentFeatureArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	// kubeadm extra args should not be included in the kubeadm config in the extra args section (instead, they must
+	// be inserted explicitly in the appropriate places or supplied from the command line); here we remove all of the
+	// kubeadm extra args from the slice
+	for i, extraArgs := range extraArgsSlice {
+		if extraArgs.Component == Kubeadm {
+			extraArgsSlice = append(extraArgsSlice[:i], extraArgsSlice[i+1:]...)
+			break
+		}
+	}
+	return extraArgsSlice, nil
+}
+
 func generateConfig(k8s config.KubernetesConfig, r cruntime.Manager) (string, error) {
 	version, err := ParseKubernetesVersion(k8s.KubernetesVersion)
 	if err != nil {
@@ -487,8 +576,7 @@ func generateConfig(k8s config.KubernetesConfig, r cruntime.Manager) (string, er
 		return "", errors.Wrap(err, "parses feature gate config for kubeadm and component")
 	}
 
-	// generates a map of component to extra args for apiserver, controller-manager, and scheduler
-	extraComponentConfig, err := NewComponentExtraArgs(k8s.ExtraOptions, version, componentFeatureArgs)
+	extraComponentConfig, err := createExtraComponentConfig(k8s.ExtraOptions, version, componentFeatureArgs)
 	if err != nil {
 		return "", errors.Wrap(err, "generating extra component config for kubeadm")
 	}
@@ -502,6 +590,7 @@ func generateConfig(k8s config.KubernetesConfig, r cruntime.Manager) (string, er
 	opts := struct {
 		CertDir           string
 		ServiceCIDR       string
+		PodSubnet         string
 		AdvertiseAddress  string
 		APIServerPort     int
 		KubernetesVersion string
@@ -515,6 +604,7 @@ func generateConfig(k8s config.KubernetesConfig, r cruntime.Manager) (string, er
 	}{
 		CertDir:           util.DefaultCertPath,
 		ServiceCIDR:       util.DefaultServiceCIDR,
+		PodSubnet:         k8s.ExtraOptions.Get("pod-network-cidr", Kubeadm),
 		AdvertiseAddress:  k8s.NodeIP,
 		APIServerPort:     nodePort,
 		KubernetesVersion: k8s.KubernetesVersion,
