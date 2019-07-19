@@ -25,11 +25,16 @@ import (
 )
 
 func TestNewSSHClient(t *testing.T) {
-	s, _ := tests.NewSSHServer()
-	port, err := s.Start()
+	s, err := tests.NewSSHServer()
+	if err != nil {
+		t.Fatalf("NewSSHServer: %v", err)
+	}
+	l, port, err := s.Start()
 	if err != nil {
 		t.Fatalf("Error starting ssh server: %v", err)
 	}
+	defer l.Close()
+
 	d := &tests.MockDriver{
 		Port: port,
 		BaseDriver: drivers.BaseDriver{
@@ -42,21 +47,21 @@ func TestNewSSHClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
+	defer c.Close()
 
-	cmd := "foo"
 	sess, err := c.NewSession()
 	if err != nil {
 		t.Fatal("Error creating new session for ssh client")
 	}
 	defer sess.Close()
 
+	cmd := "foo"
 	if err := sess.Run(cmd); err != nil {
 		t.Fatalf("Error running %q: %v", cmd, err)
 	}
 	if !s.Connected {
-		t.Fatalf("Error!")
+		t.Fatalf("Server not connected")
 	}
-
 	if _, ok := s.Commands[cmd]; !ok {
 		t.Fatalf("Expected command: %s", cmd)
 	}

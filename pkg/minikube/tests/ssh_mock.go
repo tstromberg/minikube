@@ -158,24 +158,24 @@ func (s *SSHServer) handleRequest(channel ssh.Channel, req *ssh.Request) {
 }
 
 // Start starts the mock SSH Server, and returns the port it's listening on.
-func (s *SSHServer) Start() (int, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+func (s *SSHServer) Start() (net.Listener, int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return 0, errors.Wrap(err, "Error creating tcp listener for ssh server")
+		return l, 0, errors.Wrap(err, "Error creating tcp listener for ssh server")
 	}
 
-	s.mainLoop(listener)
+	s.mainLoop(l)
 
 	// Parse and return the port.
-	_, p, err := net.SplitHostPort(listener.Addr().String())
+	_, p, err := net.SplitHostPort(l.Addr().String())
 	if err != nil {
-		return 0, errors.Wrap(err, "Error splitting host port")
+		return l, 0, errors.Wrap(err, "Error splitting host port")
 	}
 	port, err := strconv.Atoi(p)
 	if err != nil {
-		return 0, errors.Wrap(err, "Error converting port string to integer")
+		return l, 0, errors.Wrap(err, "Error converting port string to integer")
 	}
-	return port, nil
+	return l, port, nil
 }
 
 // SetCommandToOutput sets command to output
