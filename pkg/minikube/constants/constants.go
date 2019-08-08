@@ -179,7 +179,7 @@ var DefaultISOSHAURL = DefaultISOURL + SHASuffix
 var DefaultKubernetesVersion = "v1.15.1"
 
 // NewestKubernetesVersion is the newest Kubernetes version to test against
-var NewestKubernetesVersion = "v1.15.1"
+var NewestKubernetesVersion = "v1.16.0-alpha.3"
 
 // OldestKubernetesVersion is the oldest Kubernetes version to test against
 var OldestKubernetesVersion = "v1.10.13"
