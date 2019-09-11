@@ -271,17 +271,11 @@ if [ "$(uname)" != "Darwin" ]; then
   docker build -t gcr.io/k8s-minikube/gvisor-addon:latest -f testdata/gvisor-addon-Dockerfile ./testdata
 fi
 
-
-# Display the default image URL
-echo ""
-echo ">> ISO URL"
-"${MINIKUBE_BIN}" start -h | grep iso-url || true
-
 echo ""
 echo ">> Starting ${E2E_BIN} at $(date)"
 ${SUDO_PREFIX}${E2E_BIN} \
   -minikube-start-args="--vm-driver=${VM_DRIVER} ${EXTRA_START_ARGS}" \
-  -test.v -test.timeout=100m \
+  -test.timeout=60m \
   -test.parallel=${PARALLEL_COUNT} \
   -binary="${MINIKUBE_BIN}" && result=$? || result=$?
 echo ">> ${E2E_BIN} exited with ${result} at $(date)"

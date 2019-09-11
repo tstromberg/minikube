@@ -139,7 +139,8 @@ func validateKubeContext(ctx context.Context, t *testing.T, profile string) {
 
 // validateAddonManager asserts that the kube-addon-manager pod is deployed properly
 func validateAddonManager(ctx context.Context, t *testing.T, profile string) {
-	if _, err := PodWait(ctx, t, profile, "kube-system", "component=kube-addon-manager", 1*time.Minute); err != nil {
+	// If --wait=false, this may take a couple of minutes
+	if _, err := PodWait(ctx, t, profile, "kube-system", "component=kube-addon-manager", 3*time.Minute); err != nil {
 		t.Errorf("wait: %v", err)
 	}
 }
@@ -233,9 +234,11 @@ func validateCacheCmd(ctx context.Context, t *testing.T, profile string) {
 	if NoneDriver() {
 		t.Skipf("skipping: cache unsupported by none")
 	}
-	rr, err := Run(t, exec.CommandContext(ctx, Target(), "-p", profile, "cache", "add", "busybox"))
-	if err != nil {
-		t.Errorf("%s failed: %v", rr.Args, err)
+	for _, img := range []string{"busybox", "busybox:1.28.4-glibc"} {
+		rr, err := Run(t, exec.CommandContext(ctx, Target(), "-p", profile, "cache", "add", img))
+		if err != nil {
+			t.Errorf("%s failed: %v", rr.Args, err)
+		}
 	}
 }
 

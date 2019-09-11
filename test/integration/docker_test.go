@@ -53,7 +53,7 @@ func TestDockerFlags(t *testing.T) {
 		}
 	}
 
-	rr, err = Run(t, exec.CommandContext(ctx, Target(), "-p", profile, "ssh", "systemctl show docker --property=RunStart --no-pager"))
+	rr, err = Run(t, exec.CommandContext(ctx, Target(), "-p", profile, "ssh", "systemctl show docker --property=ExecStart --no-pager"))
 	if err != nil {
 		t.Errorf("%s failed: %v", rr.Args, err)
 	}
