@@ -91,9 +91,6 @@ var DefaultISOURLs = []string{
 	fmt.Sprintf("https://github.com/kubernetes/minikube/releases/download/%s/minikube-%s.iso", minikubeVersion.GetISOVersion(), minikubeVersion.GetISOVersion()),
 }
 
-// DefaultISOSHAURL is the default location of the minikube.iso.sha256 file
-var DefaultISOSHAURL = DefaultISOURL + SHASuffix
-
 // DefaultKubernetesVersion is the default kubernetes version
 var DefaultKubernetesVersion = "v1.16.0"
 

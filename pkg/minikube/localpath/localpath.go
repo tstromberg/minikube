@@ -47,7 +47,22 @@ func MakeMiniPath(fileName ...string) string {
 	return filepath.Join(args...)
 }
 
-// ISO returns the directory where ISO files are stored
-func ISODirectory() string {
+// CacheDir
+func CacheDir() string {
+
+}
+
+// ISOCache returns the directory where ISO files are stored
+func ISOCache() string {
 	return filepath.Join(MiniPath(), "cache", "iso")
+}
+
+// ISOD returns the directory where ISO files are stored
+func DriverCache() string {
+	return filepath.Join(MiniPath(), "cache", "drivers")
+}
+
+// ISOD returns the directory where ISO files are stored
+func BinaryCache() string {
+	return filepath.Join(MiniPath(), "cache", "binaries")
 }
