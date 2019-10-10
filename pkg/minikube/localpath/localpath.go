@@ -46,3 +46,8 @@ func MakeMiniPath(fileName ...string) string {
 	args = append(args, fileName...)
 	return filepath.Join(args...)
 }
+
+// ISO returns the directory where ISO files are stored
+func ISODirectory() string {
+	return filepath.Join(MiniPath(), "cache", "iso")
+}

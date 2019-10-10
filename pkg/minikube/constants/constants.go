@@ -86,7 +86,10 @@ const (
 )
 
 // DefaultISOURL is the default location of the minikube.iso file
-var DefaultISOURL = fmt.Sprintf("https://storage.googleapis.com/%s/minikube-%s.iso", minikubeVersion.GetISOPath(), minikubeVersion.GetISOVersion())
+var DefaultISOURLs = []string{
+	//	fmt.Sprintf("https://storage.googleapis.com/%s/minikube-%s.iso", minikubeVersion.GetISOPath(), minikubeVersion.GetISOVersion()),
+	fmt.Sprintf("https://github.com/kubernetes/minikube/releases/download/%s/minikube-%s.iso", minikubeVersion.GetISOVersion(), minikubeVersion.GetISOVersion()),
+}
 
 // DefaultISOSHAURL is the default location of the minikube.iso.sha256 file
 var DefaultISOSHAURL = DefaultISOURL + SHASuffix
