@@ -157,7 +157,7 @@ func initMinikubeFlags() {
 	startCmd.Flags().String(humanReadableDiskSize, defaultDiskSize, "Disk size allocated to the minikube VM (format: <number>[<unit>], where unit = b, k, m or g).")
 	startCmd.Flags().Bool(downloadOnly, false, "If true, only download and cache files for later use - don't install or start anything.")
 	startCmd.Flags().Bool(cacheImages, true, "If true, cache docker images for the current bootstrapper and load them into the machine. Always false with --vm-driver=none.")
-	startCmd.Flags().String(isoURL, constants.DefaultISOURL, "Location of the minikube iso.")
+	startCmd.Flags().String(isoURL, download.DefaultISOURLs(), "Location of the minikube iso.")
 	startCmd.Flags().Bool(keepContext, false, "This will keep the existing kubectl context and will create a minikube context.")
 	startCmd.Flags().Bool(embedCerts, false, "if true, will embed the certs in kubeconfig.")
 	startCmd.Flags().String(containerRuntime, "docker", "The container runtime to be used (docker, crio, containerd).")
@@ -302,7 +302,7 @@ func runStart(cmd *cobra.Command, args []string) {
 
 	// For non-"none", the ISO is required to boot, so block until it is downloaded
 	if driver != constants.DriverNone {
-		if err := cluster.CacheISO(config.MachineConfig); err != nil {
+		if err := download.ISO(config.MachineConfig.MinikubeISO); err != nil {
 			exit.WithError("Failed to cache ISO", err)
 		}
 	}

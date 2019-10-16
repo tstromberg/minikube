@@ -63,7 +63,7 @@ func RegisterMockDriver(t *testing.T) {
 
 var defaultMachineConfig = config.MachineConfig{
 	VMDriver:    constants.DriverMock,
-	MinikubeISO: constants.DefaultISOURL,
+	MinikubeISO: "",
 	Downloader:  MockDownloader{},
 	DockerEnv:   []string{"MOCK_MAKE_IT_PROVISION=true"},
 }

@@ -76,14 +76,6 @@ func init() {
 	ssh.SetDefaultClient(ssh.Native)
 }
 
-// CacheISO downloads and caches ISO.
-func CacheISO(config cfg.MachineConfig) error {
-	if localDriver(config.VMDriver) {
-		return nil
-	}
-	return config.Downloader.CacheMinikubeISOFromURL(config.MinikubeISO)
-}
-
 // StartHost starts a host VM.
 func StartHost(api libmachine.API, config cfg.MachineConfig) (*host.Host, error) {
 	exists, err := api.Exists(cfg.GetMachineName())

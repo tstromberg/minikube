@@ -17,110 +17,81 @@ limitations under the License.
 package constants
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/minikube/pkg/minikube/localpath"
-	minikubeVersion "k8s.io/minikube/pkg/version"
 )
 
 const (
+	// DefaultKubernetesVersion is the default kubernetes version
+	DefaultKubernetesVersion = "v1.16.1"
+	// NewestKubernetesVersion is the newest Kubernetes version to test against
+	NewestKubernetesVersion = "v1.16.1"
+	// OldestKubernetesVersion is the oldest Kubernetes version to test against
+	OldestKubernetesVersion = "v1.11.10"
+
 	// APIServerPort is the default API server port
 	APIServerPort = 8443
 	// APIServerName is the default API server name
 	APIServerName = "minikubeCA"
 	// ClusterDNSDomain is the default DNS domain
 	ClusterDNSDomain = "cluster.local"
-)
 
-// DriverMock is a mock driver.
-const DriverMock = "mock-driver"
+	// DefaultMachineName is the default name for the VM
+	DefaultMachineName = "minikube"
+	// DefaultNodeName is the default name for the kubeadm node within the VM
+	DefaultNodeName = "minikube"
 
-// DriverNone is the none driver.
-const DriverNone = "none"
+	// MountProcessFileName is the filename of the mount process
+	MountProcessFileName = ".mount-process"
 
-// DriverKvm2 is the kvm2 driver option name for in linux
-const DriverKvm2 = "kvm2"
-
-// DriverVirtualbox is the virtualbox driver option name
-const DriverVirtualbox = "virtualbox"
-
-// DriverHyperkit is the hyperkit driver option name for mac os
-const DriverHyperkit = "hyperkit"
-
-// DriverVmware is the vmware driver option name
-const DriverVmware = "vmware"
-
-// DriverVmwareFusion is the vmware fusion driver option
-const DriverVmwareFusion = "vmwarefusion"
-
-// DriverHyperv is the hyperv driver option for windows
-const DriverHyperv = "hyperv"
-
-// DriverParallels is the parallels driver option name
-const DriverParallels = "parallels"
-
-// DefaultMinipath is the default Minikube path (under the home directory)
-var DefaultMinipath = filepath.Join(homedir.HomeDir(), ".minikube")
-
-// KubeconfigPath is the path to the Kubernetes client config
-var KubeconfigPath = clientcmd.RecommendedHomeFile
-
-// KubeconfigEnvVar is the env var to check for the Kubernetes client config
-var KubeconfigEnvVar = clientcmd.RecommendedConfigPathEnvVar
-
-// DefaultMachineName is the default name for the VM
-const DefaultMachineName = "minikube"
-
-// DefaultNodeName is the default name for the kubeadm node within the VM
-const DefaultNodeName = "minikube"
-
-// MountProcessFileName is the filename of the mount process
-var MountProcessFileName = ".mount-process"
-
-const (
-	// SHASuffix is the suffix of a SHA-256 checksum file
-	SHASuffix = ".sha256"
-)
-
-// DefaultISOURL is the default location of the minikube.iso file
-var DefaultISOURL = fmt.Sprintf("https://storage.googleapis.com/%s/minikube-%s.iso", minikubeVersion.GetISOPath(), minikubeVersion.GetISOVersion())
-
-// DefaultISOSHAURL is the default location of the minikube.iso.sha256 file
-var DefaultISOSHAURL = DefaultISOURL + SHASuffix
-
-// DefaultKubernetesVersion is the default kubernetes version
-var DefaultKubernetesVersion = "v1.16.1"
-
-// NewestKubernetesVersion is the newest Kubernetes version to test against
-var NewestKubernetesVersion = "v1.16.1"
-
-// OldestKubernetesVersion is the oldest Kubernetes version to test against
-var OldestKubernetesVersion = "v1.11.10"
-
-const (
 	// IsMinikubeChildProcess is the name of "is minikube child process" variable
 	IsMinikubeChildProcess = "IS_MINIKUBE_CHILD_PROCESS"
-)
 
-// ImageRepositories contains all known image repositories
-var ImageRepositories = map[string][]string{
-	"global": {""},
-	"cn":     {"registry.cn-hangzhou.aliyuncs.com/google_containers"},
-}
+	// DriverMock is a mock driver.
+	DriverMock = "mock-driver"
+	// DriverNone is the none driver.
+	DriverNone = "none"
+	// DriverKvm2 is the kvm2 driver option name for in linux
+	DriverKvm2 = "kvm2"
+	// DriverVirtualbox is the virtualbox driver option name
+	DriverVirtualbox = "virtualbox"
+	// DriverHyperkit is the hyperkit driver option name for mac os
+	DriverHyperkit = "hyperkit"
+	// DriverVmware is the vmware driver option name
+	DriverVmware = "vmware"
+	// DriverVmwareFusion is the vmware fusion driver option
+	DriverVmwareFusion = "vmwarefusion"
+	// DriverHyperv is the hyperv driver option for windows
+	DriverHyperv = "hyperv"
+	// DriverParallels is the parallels driver option name
+	DriverParallels = "parallels"
 
-// KubeadmBinaries are Kubernetes release binaries required for kubeadm
-var KubeadmBinaries = []string{"kubelet", "kubeadm"}
-
-// ImageCacheDir is the path to the image cache directory
-var ImageCacheDir = localpath.MakeMiniPath("cache", "images")
-
-const (
 	// GvisorFilesPath is the path to the gvisor files saved by go-bindata
 	GvisorFilesPath = "/tmp/gvisor"
-
 	// GvisorConfigTomlTargetName is the go-bindata target name for the gvisor config.toml
 	GvisorConfigTomlTargetName = "gvisor-config.toml"
+)
+
+var (
+	// DefaultMinipath is the default Minikube path (under the home directory)
+	DefaultMinipath = filepath.Join(homedir.HomeDir(), ".minikube")
+
+	// KubeconfigPath is the path to the Kubernetes client config
+	KubeconfigPath = clientcmd.RecommendedHomeFile
+	// KubeconfigEnvVar is the env var to check for the Kubernetes client config
+	KubeconfigEnvVar = clientcmd.RecommendedConfigPathEnvVar
+
+	// ImageRepositories contains all known image repositories
+	ImageRepositories = map[string][]string{
+		"global": {""},
+		"cn":     {"registry.cn-hangzhou.aliyuncs.com/google_containers"},
+	}
+
+	// KubeadmBinaries are Kubernetes release binaries required for kubeadm
+	KubeadmBinaries = []string{"kubelet", "kubeadm"}
+	// ImageCacheDir is the path to the image cache directory
+	ImageCacheDir = localpath.MakeMiniPath("cache", "images")
 )
