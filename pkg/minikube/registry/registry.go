@@ -22,10 +22,27 @@ import (
 
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/pkg/errors"
+	"github.com/golang/glog"
+
 	"k8s.io/minikube/pkg/minikube/config"
 )
 
+type Priority int
+
+const (
+	// Priority for default driver selection
+	Unknown Priority = iota
+	Discouraged
+	Deprecated
+	Fallback
+	Usable
+	Preferred
+	StronglyPreferred
+)
+
 var (
+	registry = createRegistry()
+
 	// ErrDriverNameExist is the error returned when trying to register a driver
 	// which already exists in registry
 	ErrDriverNameExist = errors.New("registry: duplicated driver name")
@@ -47,27 +64,47 @@ type Registry interface {
 	List() []DriverDef
 }
 
-// ConfigFactory is a function that creates a driver config from MachineConfig
-type ConfigFactory func(config.MachineConfig) interface{}
+// Configurator emits a struct to be marshalled into JSON for Machine Driver
+type Configurator func(config.MachineConfig) interface{}
 
-// DriverFactory is a function that loads a byte stream and creates a driver.
-type DriverFactory func() drivers.Driver
+// Loader is a function that loads a byte stream and creates a driver.
+type Loader func() drivers.Driver
 
-// DriverDef defines a machine driver metadata. It tells minikube how to initialize
-// and load drivers.
+// Status is the installation status of a driver and its dependencies
+type Status struct {
+	Installed bool
+	Healthy   bool
+	Error     error
+	Fix       string
+	Doc       string
+}
+
+// DriverStatus is metadata relating to a driver and status
+type DriverStatus struct {
+	Name            string
+	Priority Priority
+	InstallStatus          InstallStatus
+}
+
+// StatusChecker checks if a driver is available, offering a
+type StatusChecker func() Status
+
+// DriverDef defines how to initialize and load a machine driver
 type DriverDef struct {
 	// Name of the machine driver. It has to be unique.
 	Name string
 
-	// BuiltIn indicates if the driver is builtin minikube binary, or the driver is
-	// triggered through RPC.
-	Builtin bool
+	// Config is a function that emits a configured driver struct
+	Config Configurator
 
-	// ConfigCreator generates a raw driver object by minikube's machine config.
-	ConfigCreator ConfigFactory
+	// Init is a function that initializes a machine driver, if built-in to the minikube binary
+	Init Loader
 
-	// DriverCreator is the factory method that creates a machine driver instance.
-	DriverCreator DriverFactory
+	// Status returns the installation status of the driver
+	Sattus Status
+
+	// Priority returns the prioritization for selecting a driver by default.
+	Priority Priority
 }
 
 func (d DriverDef) String() string {
@@ -85,10 +122,6 @@ func createRegistry() *driverRegistry {
 	}
 }
 
-var (
-	registry = createRegistry()
-)
-
 // ListDrivers lists all drivers in registry
 func ListDrivers() []DriverDef {
 	return registry.List()
@@ -104,6 +137,23 @@ func Driver(name string) (DriverDef, error) {
 	return registry.Driver(name)
 }
 
+// InstallStatus returns the status of installed drivers
+func InstallStatus() []DriverStatus {
+	sts := []DriverStatus{}
+	for _, d := range registry.List() {
+		if d.StatusChecker == nil {
+			glog.Errorf("%q does not implement StatusChecker", d.Name)
+			continue
+		}
+		s := d.StatusChecker()
+		if s.Installed {
+			sts = append(sts, DriverStatus{Name: d.Name, Priority: d.Priority, Status: s})
+		}
+	}
+	return sts
+}
+
+// Register registers a driver with minikube
 func (r *driverRegistry) Register(def DriverDef) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
@@ -116,6 +166,7 @@ func (r *driverRegistry) Register(def DriverDef) error {
 	return nil
 }
 
+// List returns a list of registered drivers
 func (r *driverRegistry) List() []DriverDef {
 	r.lock.Lock()
 	defer r.lock.Unlock()

@@ -37,6 +37,7 @@ func init() {
 		DriverCreator: func() drivers.Driver {
 			return parallels.NewDriver("", "")
 		},
+		
 	})
 	if err != nil {
 		panic(fmt.Sprintf("unable to register: %v", err))

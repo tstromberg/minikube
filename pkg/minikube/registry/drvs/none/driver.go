@@ -31,10 +31,12 @@ func init() {
 	if err := registry.Register(registry.DriverDef{
 		Name:          driver.None,
 		Builtin:       true,
-		ConfigCreator: createNoneHost,
+		ConfigCreator: noneConfig,
 		DriverCreator: func() drivers.Driver {
 			return none.NewDriver(none.Config{})
 		},
+		StatusCheck: status,
+		DefaultPriority: registry.Discouraged,		// requires root
 	}); err != nil {
 		panic(fmt.Sprintf("register failed: %v", err))
 	}

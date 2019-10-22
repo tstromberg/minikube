@@ -20,6 +20,7 @@ package hyperkit
 
 import (
 	"fmt"
+	"os/exec"
 
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/pborman/uuid"
@@ -30,17 +31,22 @@ import (
 	"k8s.io/minikube/pkg/minikube/driver"
 )
 
+const (
+	docURL = "https://minikube.sigs.k8s.io/docs/reference/drivers/hyperkit/"
+)
+
 func init() {
 	if err := registry.Register(registry.DriverDef{
 		Name:          driver.HyperKit,
-		Builtin:       false,
-		ConfigCreator: createHyperkitHost,
+		Config: configure,
+		InstallStatus: status,
+		Priority: registry.Preferred,
 	}); err != nil {
 		panic(fmt.Sprintf("register: %v", err))
 	}
 }
 
-func createHyperkitHost(config cfg.MachineConfig) interface{} {
+func configure(config cfg.MachineConfig) *hyperkit.Driver {
 	uuID := config.UUID
 	if uuID == "" {
 		uuID = uuid.NewUUID().String()
@@ -63,4 +69,18 @@ func createHyperkitHost(config cfg.MachineConfig) interface{} {
 		VSockPorts:     config.HyperkitVSockPorts,
 		Cmdline:        "loglevel=3 console=ttyS0 console=tty0 noembed nomodeset norestore waitusb=10 systemd.legacy_systemd_cgroup_controller=yes random.trust_cpu=on hw_rng_model=virtio base host=" + cfg.GetMachineName(),
 	}
+}
+
+func status() registry.InstallStatus {
+	path, err := exec.LookPath("hyperkit")
+	if err != nil {
+		return registry.Status{Error: err, Fix: "Run 'brew install hyperkit'", Doc: docURL}
+	}
+
+	err = exec.Command(path, "-v").Run()
+	if err != nil {
+		return registry.Status{Installed: true, Error: err, Fix: "Run 'brew install hyperkit'", Doc: docURL}
+	}
+
+	return registry.Status{Installed: true, Healthy: true}
 }

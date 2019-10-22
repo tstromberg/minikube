@@ -25,6 +25,7 @@ import (
 	"github.com/docker/machine/libmachine/drivers"
 	"k8s.io/minikube/pkg/minikube/config"
 	"k8s.io/minikube/pkg/minikube/driver"
+	"k8s.io/minikube/pkg/drivers/kvm"
 	"k8s.io/minikube/pkg/minikube/localpath"
 	"k8s.io/minikube/pkg/minikube/registry"
 )
@@ -32,34 +33,21 @@ import (
 func init() {
 	if err := registry.Register(registry.DriverDef{
 		Name:          driver.KVM2,
-		Builtin:       false,
-		ConfigCreator: createKVM2Host,
+		Config: configure,
+		Status: status,
+		DefaultPriority: registry.Preferred,
 	}); err != nil {
 		panic(fmt.Sprintf("register failed: %v", err))
 	}
 }
 
-// Delete this once the following PR is merged:
-// https://github.com/dhiltgen/docker-machine-kvm/pull/68
-type kvmDriver struct {
-	*drivers.BaseDriver
 
-	Memory         int
-	DiskSize       int
-	CPU            int
-	Network        string
-	PrivateNetwork string
-	ISO            string
-	Boot2DockerURL string
-	DiskPath       string
-	GPU            bool
-	Hidden         bool
-	ConnectionURI  string
-}
 
-func createKVM2Host(mc config.MachineConfig) interface{} {
+func create(mc config.MachineConfig) interface{} {
 	name := config.GetMachineName()
-	return &kvmDriver{
+
+	
+	return kvm.Driver{
 		BaseDriver: &drivers.BaseDriver{
 			MachineName: name,
 			StorePath:   localpath.MiniPath(),
