@@ -17,12 +17,11 @@ limitations under the License.
 package registry
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/docker/machine/libmachine/drivers"
-	"github.com/pkg/errors"
 	"github.com/golang/glog"
+	"github.com/pkg/errors"
 
 	"k8s.io/minikube/pkg/minikube/config"
 )
@@ -35,7 +34,7 @@ const (
 	Discouraged
 	Deprecated
 	Fallback
-	Usable
+	Default
 	Preferred
 	StronglyPreferred
 )
@@ -70,8 +69,11 @@ type Configurator func(config.MachineConfig) interface{}
 // Loader is a function that loads a byte stream and creates a driver.
 type Loader func() drivers.Driver
 
-// Status is the installation status of a driver and its dependencies
-type Status struct {
+// Status checks if a driver is available, offering a
+type StatusChecker func() State
+
+// State is the current state of the driver and its dependencies
+type State struct {
 	Installed bool
 	Healthy   bool
 	Error     error
@@ -79,15 +81,16 @@ type Status struct {
 	Doc       string
 }
 
-// DriverStatus is metadata relating to a driver and status
-type DriverStatus struct {
-	Name            string
+// State is metadata relating to a driver and status
+type DriverState struct {
+	Name     string
 	Priority Priority
-	InstallStatus          InstallStatus
+	State    State
 }
 
-// StatusChecker checks if a driver is available, offering a
-type StatusChecker func() Status
+func (d DriverState) String() string {
+	return d.Name
+}
 
 // DriverDef defines how to initialize and load a machine driver
 type DriverDef struct {
@@ -101,14 +104,14 @@ type DriverDef struct {
 	Init Loader
 
 	// Status returns the installation status of the driver
-	Sattus Status
+	Status StatusChecker
 
 	// Priority returns the prioritization for selecting a driver by default.
 	Priority Priority
 }
 
 func (d DriverDef) String() string {
-	return fmt.Sprintf("{name: %s, builtin: %t}", d.Name, d.Builtin)
+	return d.Name
 }
 
 type driverRegistry struct {
@@ -137,20 +140,29 @@ func Driver(name string) (DriverDef, error) {
 	return registry.Driver(name)
 }
 
-// InstallStatus returns the status of installed drivers
-func InstallStatus() []DriverStatus {
-	sts := []DriverStatus{}
+// Installed returns a list of installed drivers
+func Installed() []DriverState {
+	sts := []DriverState{}
 	for _, d := range registry.List() {
-		if d.StatusChecker == nil {
-			glog.Errorf("%q does not implement StatusChecker", d.Name)
+		if d.Status == nil {
+			glog.Errorf("%q does not implement Status", d.Name)
 			continue
 		}
-		s := d.StatusChecker()
+		s := d.Status()
 		if s.Installed {
-			sts = append(sts, DriverStatus{Name: d.Name, Priority: d.Priority, Status: s})
+			sts = append(sts, DriverState{Name: d.Name, Priority: d.Priority, State: s})
 		}
 	}
 	return sts
+}
+
+// Status returns the state of a driver
+func Status(name string) (State, error) {
+	d, err := registry.Driver(name)
+	if err != nil {
+		return State{}, err
+	}
+	return d.Status(), nil
 }
 
 // Register registers a driver with minikube

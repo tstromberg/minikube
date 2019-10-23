@@ -71,16 +71,16 @@ func configure(config cfg.MachineConfig) *hyperkit.Driver {
 	}
 }
 
-func status() registry.InstallStatus {
+func status() registry.State {
 	path, err := exec.LookPath("hyperkit")
 	if err != nil {
-		return registry.Status{Error: err, Fix: "Run 'brew install hyperkit'", Doc: docURL}
+		return registry.State{Error: err, Fix: "Run 'brew install hyperkit'", Doc: docURL}
 	}
 
 	err = exec.Command(path, "-v").Run()
 	if err != nil {
-		return registry.Status{Installed: true, Error: err, Fix: "Run 'brew install hyperkit'", Doc: docURL}
+		return registry.State{Installed: true, Error: err, Fix: "Run 'brew install hyperkit'", Doc: docURL}
 	}
 
-	return registry.Status{Installed: true, Healthy: true}
+	return registry.State{Installed: true, Healthy: true}
 }

@@ -120,7 +120,7 @@ const (
 	minimumCPUS           = 2
 	minimumDiskSize       = "2000mb"
 	autoUpdate            = "auto-update-drivers"
-	autoDetect = "auto-detect"
+	autoDetect            = "auto-detect"
 )
 
 var (
@@ -548,7 +548,7 @@ func selectDriver(oldConfig *cfg.Config) string {
 		}
 		pick, alts := driver.Choose(options)
 		if len(options) > 1 {
-				out.T(out.Sparkle, `Automatically selected the '{{.driver}} driver (alternates: {{.alternates}})`, out.V{"driver": pick.Name, "alternates": alts})
+			out.T(out.Sparkle, `Automatically selected the '{{.driver}}' driver (alternates: {{.alternates}})`, out.V{"driver": pick.Name, "alternates": alts})
 		}
 		name = pick.Name
 	}
