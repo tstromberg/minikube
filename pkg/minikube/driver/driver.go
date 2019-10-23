@@ -81,11 +81,11 @@ func FlagDefaults(name string) FlagHints {
 }
 
 // Choices returns a list of drivers which are possible on this system
-func Choices() []registry.DriverStatus {
-	options := []registry.DriverStatus{}
-	for _, ds := range registry.InstallStatus() {
-		if !ds.Status.Healthy {
-			glog.Warningf("%s is installed, but unhealthy: %v", ds.Name, ds.Status.Error)
+func Choices() []registry.DriverState {
+	options := []registry.DriverState{}
+	for _, ds := range registry.Installed() {
+		if !ds.State.Healthy {
+			glog.Warningf("%s is installed, but unhealthy: %v", ds.Name, ds.State.Error)
 			continue
 		}
 		options = append(options, ds)
@@ -96,15 +96,15 @@ func Choices() []registry.DriverStatus {
 }
 
 // Choose returns a suggested driver from a set of options
-func Choose(options []registry.DriverStatus) (registry.DriverStatus, []registry.DriverStatus) {
-	pick := registry.DriverStatus{}
+func Choose(options []registry.DriverState) (registry.DriverState, []registry.DriverState) {
+	pick := registry.DriverState{}
 	for _, ds := range options {
 		if ds.Priority > pick.Priority {
 			pick = ds
 		}
 	}
 
-	alternates := []registry.DriverStatus{}
+	alternates := []registry.DriverState{}
 	for _, ds := range options {
 		if ds != pick {
 			alternates = append(alternates, ds)
