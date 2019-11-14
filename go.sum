@@ -101,8 +101,6 @@ github.com/coreos/rkt v1.30.0/go.mod h1:O634mlH6U7qk87poQifK6M2rsFNt+FyUTWNMnP1h
 github.com/cpuguy83/go-md2man v1.0.4/go.mod h1:N6JayAiVKtlHSnuTCeuLSQVs75hb8q+dYQLjr7cDsKY=
 github.com/cpuguy83/go-md2man v1.0.10 h1:BSKMNlYxDvnunlTymqtgONjNnaRV1sTpcovwwjF22jk=
 github.com/cpuguy83/go-md2man v1.0.10/go.mod h1:SmD6nW6nTyfqj6ABTjUi3V3JVMnlJmwcJI5acqYI6dE=
-github.com/cratonica/2goarray v0.0.0-20190331194516-514510793eaa h1:Wg+722vs7a2zQH5lR9QWYsVbplKeffaQFIs5FTdfNNo=
-github.com/cratonica/2goarray v0.0.0-20190331194516-514510793eaa/go.mod h1:6Arca19mRx58CA7OWEd7Wu1NpC1rd3uDnNs6s1pj/DI=
 github.com/cyphar/filepath-securejoin v0.0.0-20170720062807-ae69057f2299/go.mod h1:FpkQEhXnPnOthhzymB7CGsFk2G9VLXONKD9G7QGMM+4=
 github.com/d2g/dhcp4 v0.0.0-20170904100407-a1d1b6c41b1c/go.mod h1:Ct2BUK8SB0YC1SMSibvLzxjeJLnrYEVLULFNiHY9YfQ=
 github.com/d2g/dhcp4client v0.0.0-20170829104524-6e570ed0a266/go.mod h1:j0hNfjhrt2SxUOw55nL0ATM/z4Yt3t2Kd1mW34z5W5s=
@@ -156,10 +154,6 @@ github.com/getlantern/hidden v0.0.0-20190325191715-f02dbb02be55 h1:XYzSdCbkzOC0F
 github.com/getlantern/hidden v0.0.0-20190325191715-f02dbb02be55/go.mod h1:6mmzY2kW1TOOrVy+r41Za2MxXM+hhqTtY3oBKd2AgFA=
 github.com/getlantern/ops v0.0.0-20190325191751-d70cb0d6f85f h1:wrYrQttPS8FHIRSlsrcuKazukx/xqO/PpLZzZXsF+EA=
 github.com/getlantern/ops v0.0.0-20190325191751-d70cb0d6f85f/go.mod h1:D5ao98qkA6pxftxoqzibIBBrLSUli+kYnJqrgBf9cIA=
-github.com/getlantern/systray v0.0.0-20191102120558-baeca33b8639 h1:tPGMg3zhSa/Phe6jYE0iY57wCK5dtS2+ejjVfkq0jqE=
-github.com/getlantern/systray v0.0.0-20191102120558-baeca33b8639/go.mod h1:7Splj4WBQSps8jODnMgrIV6goKL0N1HR+mhCAEVWlA0=
-github.com/getlantern/systray v0.0.0-20191111190243-1a6b33f30317 h1:oxNi/jVatunrotGpjrdgo+hWDTCKIgUpudy5v0RN76U=
-github.com/getlantern/systray v0.0.0-20191111190243-1a6b33f30317/go.mod h1:PviSGWMsy/2+EZ01rPH9mm33pLRsMtcnzACB4hZadQQ=
 github.com/getlantern/uuid v1.2.0/go.mod h1:uX10hOzZUUDR+oYNSIks+RcozOEiwTNC/K2rw9SUi1k=
 github.com/ghodss/yaml v0.0.0-20180820084758-c7ce16629ff4/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
@@ -642,8 +636,6 @@ golang.org/x/sys v0.0.0-20190502145724-3ef323f4f1fd/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20190507160741-ecd444e8653b/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20190606165138-5da285871e9c/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20190624142023-c5567b49c5d0/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb h1:fgwFCsaw9buMuxNd6+DQfAuSFqbNiQZpcgJQAgJsK6k=
-golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20190904154756-749cb33beabd/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13 h1:/zi0zzlPHWXYXrO1LjNRByFu8sdGgCkj2JLDdBIB84k=
 golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
