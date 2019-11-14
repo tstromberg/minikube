@@ -130,7 +130,7 @@ func Update(kcs *Settings) error {
 
 	// read existing config or create new if does not exist
 	glog.Infoln("Updating kubeconfig: ", kcs.filePath())
-	kcfg, err := readOrNew(kcs.filePath())
+	kcfg, err := ReadOrNew(kcs.filePath())
 	if err != nil {
 		return err
 	}

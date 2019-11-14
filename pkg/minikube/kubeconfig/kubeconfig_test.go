@@ -159,7 +159,7 @@ func TestUpdate(t *testing.T) {
 			if err == nil && test.err {
 				t.Errorf("Expected error but got none")
 			}
-			config, err := readOrNew(test.cfg.filePath())
+			config, err := ReadOrNew(test.cfg.filePath())
 			if err != nil {
 				t.Errorf("Error reading kubeconfig file: %v", err)
 			}
@@ -290,7 +290,7 @@ func TestEmptyConfig(t *testing.T) {
 	tmp := tempFile(t, []byte{})
 	defer os.Remove(tmp)
 
-	cfg, err := readOrNew(tmp)
+	cfg, err := ReadOrNew(tmp)
 	if err != nil {
 		t.Fatalf("could not read config: %v", err)
 	}
@@ -326,7 +326,7 @@ func TestNewConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	actual, err := readOrNew(filename)
+	actual, err := ReadOrNew(filename)
 	if err != nil {
 		t.Fatal(err)
 	}

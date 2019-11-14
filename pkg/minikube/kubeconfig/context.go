@@ -28,7 +28,7 @@ func UnsetCurrentContext(machineName string, configPath ...string) error {
 	if configPath != nil {
 		fPath = configPath[0]
 	}
-	kCfg, err := readOrNew(fPath)
+	kCfg, err := ReadOrNew(fPath)
 	if err != nil {
 		return errors.Wrap(err, "Error getting kubeconfig status")
 	}
@@ -51,7 +51,7 @@ func SetCurrentContext(name string, configPath ...string) error {
 	if configPath != nil {
 		fPath = configPath[0]
 	}
-	kcfg, err := readOrNew(fPath)
+	kcfg, err := ReadOrNew(fPath)
 	if err != nil {
 		return errors.Wrap(err, "Error getting kubeconfig status")
 	}
@@ -68,7 +68,7 @@ func DeleteContext(machineName string, configPath ...string) error {
 	if configPath != nil {
 		fPath = configPath[0]
 	}
-	kcfg, err := readOrNew(fPath)
+	kcfg, err := ReadOrNew(fPath)
 	if err != nil {
 		return errors.Wrap(err, "Error getting kubeconfig status")
 	}

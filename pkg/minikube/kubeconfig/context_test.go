@@ -29,7 +29,7 @@ func TestDeleteContext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg, err := readOrNew(fn)
+	cfg, err := ReadOrNew(fn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestSetCurrentContext(t *testing.T) {
 	}
 	defer os.Remove(f.Name())
 
-	kcfg, err := readOrNew(f.Name())
+	kcfg, err := ReadOrNew(f.Name())
 	if err != nil {
 		t.Fatalf("Error not expected but got %v", err)
 	}
@@ -75,7 +75,7 @@ func TestSetCurrentContext(t *testing.T) {
 		}
 	}()
 
-	kcfg, err = readOrNew(f.Name())
+	kcfg, err = ReadOrNew(f.Name())
 	if err != nil {
 		t.Fatalf("Error not expected but got %v", err)
 	}
@@ -88,7 +88,7 @@ func TestUnsetCurrentContext(t *testing.T) {
 	fn := filepath.Join("testdata", "kubeconfig", "config1")
 	contextName := "minikube"
 
-	cfg, err := readOrNew(fn)
+	cfg, err := ReadOrNew(fn)
 	if err != nil {
 		t.Fatalf("Error not expected but got %v", err)
 	}
@@ -108,7 +108,7 @@ func TestUnsetCurrentContext(t *testing.T) {
 		}
 	}()
 
-	cfg, err = readOrNew(fn)
+	cfg, err = ReadOrNew(fn)
 	if err != nil {
 		t.Fatalf("Error not expected but got %v", err)
 	}
@@ -122,7 +122,7 @@ func TestUnsetCurrentContextOnlyChangesIfProfileIsTheCurrentContext(t *testing.T
 	contextName := "minikube"
 
 	fn := filepath.Join("testdata", "kubeconfig", "config2")
-	cfg, err := readOrNew(fn)
+	cfg, err := ReadOrNew(fn)
 	if err != nil {
 		t.Fatalf("Error not expected but got %v", err)
 	}
@@ -136,7 +136,7 @@ func TestUnsetCurrentContextOnlyChangesIfProfileIsTheCurrentContext(t *testing.T
 		t.Fatalf("Error not expected but got %v", err)
 	}
 
-	cfg, err = readOrNew(fn)
+	cfg, err = ReadOrNew(fn)
 	if err != nil {
 		t.Fatalf("Error not expected but got %v", err)
 	}

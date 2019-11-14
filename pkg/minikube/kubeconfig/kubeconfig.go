@@ -62,7 +62,7 @@ func Port(clusterName string, configPath ...string) (int, error) {
 	if configPath != nil {
 		path = configPath[0]
 	}
-	cfg, err := readOrNew(path)
+	cfg, err := ReadOrNew(path)
 	if err != nil {
 		return 0, errors.Wrap(err, "Error getting kubeconfig status")
 	}
@@ -104,7 +104,7 @@ func extractIP(machineName string, configPath ...string) (net.IP, error) {
 	if configPath != nil {
 		path = configPath[0]
 	}
-	apiCfg, err := readOrNew(path)
+	apiCfg, err := ReadOrNew(path)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error getting kubeconfig status")
 	}
@@ -146,7 +146,7 @@ func UpdateIP(ip net.IP, machineName string, configPath ...string) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	cfg, err := readOrNew(path)
+	cfg, err := ReadOrNew(path)
 	if err != nil {
 		return false, errors.Wrap(err, "Error getting kubeconfig status")
 	}
@@ -198,9 +198,9 @@ func writeToFile(config runtime.Object, configPath ...string) error {
 	return nil
 }
 
-// readOrNew retrieves Kubernetes client configuration from a file.
+// ReadOrNew retrieves Kubernetes client configuration from a file.
 // If no files exists, an empty configuration is returned.
-func readOrNew(configPath ...string) (*api.Config, error) {
+func ReadOrNew(configPath ...string) (*api.Config, error) {
 	fPath := PathFromEnv()
 	if configPath != nil {
 		fPath = configPath[0]
