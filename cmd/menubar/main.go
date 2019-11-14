@@ -23,6 +23,10 @@ type cluster struct {
 	Type           string
 }
 
+
+var (
+	createButton *systray.MenuItem
+)
 /*
 
 func healthIssues() {
@@ -115,51 +119,72 @@ func addClusterActions(c *cluster, i *systray.MenuItem) {
 	start := i.AddSubMenuItem("Start", "Start the cluster")
 	go func() {
 		<-start.ClickedCh
+		start.Disable()
+		start.SetTitle("Starting ...")
 		cmd := exec.CommandContext(context.Background(), "minikube", "start", "-p", c.Name, "--wait=false")
 		err := cmd.Run()
 		if err != nil {
 			glog.Errorf("start failed: %v", err)
 		}
+		start.SetTitle("Start")
+		start.Hide()
 	}()
 
 	stop := i.AddSubMenuItem("Stop", "Stop the cluster")
 	go func() {
 		<-stop.ClickedCh
+		stop.Disable()
+		stop.SetTitle("Stopping ...")
 		cmd := exec.CommandContext(context.Background(), "minikube", "stop", "-p", c.Name)
 		err := cmd.Run()
 		if err != nil {
 			glog.Errorf("stop failed: %v", err)
 		}
+		stop.SetTitle("Stop")
+		stop.Hide()
+		start.Enable()
 	}()
 
 	delete := i.AddSubMenuItem("Delete", "Delete the cluster")
 	go func() {
 		<-delete.ClickedCh
+		delete.Disable()
+		delete.SetTitle("Deleting ...")
 		cmd := exec.CommandContext(context.Background(), "minikube", "delete", "-p", c.Name)
 		err := cmd.Run()
 		if err != nil {
 			glog.Errorf("delete failed: %v", err)
 		}
+		delete.SetTitle("Delete")
+		i.Hide()
 	}()
 
 	dashboard := i.AddSubMenuItem("Dashboard", "Display Dashboard")
 	go func() {
 		<-dashboard.ClickedCh
+		dashboard.Disable()
+		dashboard.SetTitle("Dashboard starting ...")
 		cmd := exec.CommandContext(context.Background(), "minikube", "dashboard", "-p", c.Name)
 		err := cmd.Run()
 		if err != nil {
-			glog.Errorf("stop failed: %v", err)
+			glog.Errorf("dashboard failed: %v", err)
 		}
+		dashboard.SetTitle("Dashboard")
+		dashboard.Enable()
 	}()
 
 	tunnel := i.AddSubMenuItem("Tunnel", "Start Tunnel")
 	go func() {
 		<-tunnel.ClickedCh
+		tunnel.Disable()
+		tunnel.SetTitle("Tunnel starting ...")
 		cmd := exec.CommandContext(context.Background(), "minikube", "tunnel", "-p", c.Name)
 		err := cmd.Run()
 		if err != nil {
 			glog.Errorf("tunnel failed: %v", err)
 		}
+		tunnel.SetTitle("Stop Tunnel")
+		tunnel.Enable()
 	}()
 }
 
@@ -191,6 +216,21 @@ func updateMenu(ci map[string]*systray.MenuItem) {
 			ci[c.Name].Check()
 			systray.SetTitle(c.Name)
 		}
+	}
+
+	if ci["minikube"] == nil && createButton == nil {
+		createButton = systray.AddMenuItem("Create local cluster", "Create a local cluster")
+		go func() {
+			<-createButton.ClickedCh
+			createButton.Disable()
+			createButton.SetTitle("Starting ...")
+			cmd := exec.CommandContext(context.Background(), "minikube", "start", "-p", "minikube", "--wait=false")
+			err := cmd.Run()
+			if err != nil {
+				glog.Errorf("start failed: %v", err)
+			}
+			createButton.Hide()
+		}()
 	}
 }
 
