@@ -3,13 +3,21 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/getlantern/systray"
 	"github.com/golang/glog"
-	"k8s.io/minikube/cmd/menubar/icon"
+	"k8s.io/minikube/cmd/menubar/icons/disabled"
+	"k8s.io/minikube/cmd/menubar/icons/minikube"
+//	"k8s.io/minikube/cmd/menubar/icons/erricon"
+//	"k8s.io/minikube/cmd/menubar/icons/warning"
+	"k8s.io/minikube/cmd/menubar/icons/kubernetes"
+	"k8s.io/minikube/cmd/menubar/icons/desat1"
+	"k8s.io/minikube/cmd/menubar/icons/desat2"
+	"k8s.io/minikube/cmd/menubar/icons/desat3"
 	"k8s.io/minikube/pkg/minikube/config"
 	"k8s.io/minikube/pkg/minikube/kubeconfig"
 )
@@ -26,6 +34,7 @@ type cluster struct {
 
 var (
 	createButton *systray.MenuItem
+	iconState = "default"
 )
 /*
 
@@ -37,6 +46,7 @@ func healthIssues() {
 
 }
 */
+
 
 func activeClusters(ctx context.Context) ([]*cluster, error) {
 	cs := []*cluster{}
@@ -108,6 +118,7 @@ func minikubeClusters(ctx context.Context) ([]*cluster, error) {
 }
 
 func main() {
+	flag.Parse()
 	onExit := func() {
 		glog.Infof("exiting")
 	}
@@ -116,13 +127,26 @@ func main() {
 }
 
 func addClusterActions(c *cluster, i *systray.MenuItem) {
+	go func() {
+		<-i.ClickedCh
+		iconState = "loading"
+		cmd := exec.CommandContext(context.Background(), "kubectl", "config", "set-context", c.Name)
+		err := cmd.Run()
+		iconState = "default"
+		if err != nil {
+			glog.Errorf("start failed: %v", err)
+		}
+	}()
+
 	start := i.AddSubMenuItem("Start", "Start the cluster")
 	go func() {
 		<-start.ClickedCh
 		start.Disable()
 		start.SetTitle("Starting ...")
+		iconState = "loading"
 		cmd := exec.CommandContext(context.Background(), "minikube", "start", "-p", c.Name, "--wait=false")
 		err := cmd.Run()
+		iconState = "default"
 		if err != nil {
 			glog.Errorf("start failed: %v", err)
 		}
@@ -135,8 +159,10 @@ func addClusterActions(c *cluster, i *systray.MenuItem) {
 		<-stop.ClickedCh
 		stop.Disable()
 		stop.SetTitle("Stopping ...")
+		iconState = "loading"
 		cmd := exec.CommandContext(context.Background(), "minikube", "stop", "-p", c.Name)
 		err := cmd.Run()
+		iconState = "default"
 		if err != nil {
 			glog.Errorf("stop failed: %v", err)
 		}
@@ -150,8 +176,10 @@ func addClusterActions(c *cluster, i *systray.MenuItem) {
 		<-delete.ClickedCh
 		delete.Disable()
 		delete.SetTitle("Deleting ...")
+		iconState = "loading"
 		cmd := exec.CommandContext(context.Background(), "minikube", "delete", "-p", c.Name)
 		err := cmd.Run()
+		iconState = "default"
 		if err != nil {
 			glog.Errorf("delete failed: %v", err)
 		}
@@ -164,8 +192,10 @@ func addClusterActions(c *cluster, i *systray.MenuItem) {
 		<-dashboard.ClickedCh
 		dashboard.Disable()
 		dashboard.SetTitle("Dashboard starting ...")
+		iconState = "loading"
 		cmd := exec.CommandContext(context.Background(), "minikube", "dashboard", "-p", c.Name)
 		err := cmd.Run()
+		iconState = "default"
 		if err != nil {
 			glog.Errorf("dashboard failed: %v", err)
 		}
@@ -178,8 +208,10 @@ func addClusterActions(c *cluster, i *systray.MenuItem) {
 		<-tunnel.ClickedCh
 		tunnel.Disable()
 		tunnel.SetTitle("Tunnel starting ...")
+		iconState = "loading"
 		cmd := exec.CommandContext(context.Background(), "minikube", "tunnel", "-p", c.Name)
 		err := cmd.Run()
+		iconState = "default"
 		if err != nil {
 			glog.Errorf("tunnel failed: %v", err)
 		}
@@ -191,6 +223,7 @@ func addClusterActions(c *cluster, i *systray.MenuItem) {
 func updateMenu(ci map[string]*systray.MenuItem) {
 	ctx := context.Background()
 	cs, err := activeClusters(ctx)
+	glog.Infof("updateMenu: %d clusters", len(cs))
 	if err != nil {
 		glog.Errorf("error retrieving clusters: %v", err)
 	}
@@ -210,7 +243,9 @@ func updateMenu(ci map[string]*systray.MenuItem) {
 			addClusterActions(c, ci[c.Name])
 		}
 		if c.Type == "minikube" {
-			ci[c.Name].SetIcon(icon.Data)
+			ci[c.Name].SetIcon(minikube.Data)
+		} else {
+			ci[c.Name].SetIcon(kubernetes.Data)
 		}
 		if c.CurrentContext {
 			ci[c.Name].Check()
@@ -224,8 +259,10 @@ func updateMenu(ci map[string]*systray.MenuItem) {
 			<-createButton.ClickedCh
 			createButton.Disable()
 			createButton.SetTitle("Starting ...")
+			iconState = "loading"
 			cmd := exec.CommandContext(context.Background(), "minikube", "start", "-p", "minikube", "--wait=false")
 			err := cmd.Run()
+			iconState = "default"
 			if err != nil {
 				glog.Errorf("start failed: %v", err)
 			}
@@ -285,9 +322,11 @@ func updateMenu(ci map[string]*systray.MenuItem) {
 */
 
 func onReady() {
-	systray.SetIcon(icon.Data)
 	systray.SetTooltip("Local Kubernetes")
-	mQuit := systray.AddMenuItem("Quit", "Quit the whole app")
+	options := systray.AddMenuItem("Options", "Options")
+	mQuit := options.AddSubMenuItem("Quit", "Quit the whole app")
+	systray.AddSeparator()
+
 	go func() {
 		<-mQuit.ClickedCh
 		systray.Quit()
@@ -295,10 +334,35 @@ func onReady() {
 
 	clusterItems := map[string]*systray.MenuItem{}
 	go func() {
-
+		updateMenu(clusterItems)
 		for {
-			updateMenu(clusterItems)
-			time.Sleep(2 * time.Second)
+			switch iconState {
+				case "default":
+				  systray.SetIcon(disabled.Data)
+				case "enabled":
+					systray.SetIcon(minikube.Data)
+				case "other":
+					systray.SetIcon(kubernetes.Data)
+				case "loading":
+					systray.SetIcon(desat1.Data)
+					iconState = "loading2"
+				case "loading2":
+					systray.SetIcon(desat2.Data)
+					iconState = "loading3"
+				case "loading3":
+					systray.SetIcon(desat3.Data)
+					iconState = "loading4"
+				case "loading4":
+					systray.SetIcon(minikube.Data)
+					iconState = "loading5"
+				case "loading5":
+					systray.SetIcon(desat3.Data)
+					iconState = "loading1"
+				case "loading6":
+					systray.SetIcon(desat2.Data)
+					iconState = "loading"
+			}
+			time.Sleep(1 * time.Second)
 		}
 	}()
 }
