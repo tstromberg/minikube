@@ -144,7 +144,7 @@ func CachedImages(imageRepositoryStr string, kubernetesVersionStr string) []stri
 	}
 
 	images = append(images, []string{
-		imageRepository + "kube-addon-manager" + ArchTag(false) + "v9.0",
+		imageRepository + "kube-addon-manager" + ArchTag(false) + "v9.0.2",
 		minikubeRepository + "storage-provisioner" + ArchTag(false) + "v1.8.1",
 	}...)
 
