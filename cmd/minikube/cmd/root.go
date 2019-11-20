@@ -169,6 +169,8 @@ func init() {
 			Commands: []*cobra.Command{
 				startCmd,
 				statusCmd,
+				pauseCmd,
+				unpauseCmd,
 				stopCmd,
 				deleteCmd,
 				dashboardCmd,

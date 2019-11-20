@@ -280,6 +280,14 @@ func configureAuth(p *BuildrootProvisioner) error {
 		return errors.Wrap(err, "error getting ip during provisioning")
 	}
 
+	if _, err = p.SSHCommand(fmt.Sprintf("sudo sed -i s/minikube/%s/g /etc/hosts", machineName)); err != nil {
+		return err
+	}
+
+	if _, err = p.SSHCommand(fmt.Sprintf("sudo hostname %s", machineName)); err != nil {
+		return err
+	}
+
 	err = copyHostCerts(authOptions)
 	if err != nil {
 		return err
