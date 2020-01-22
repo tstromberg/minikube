@@ -240,31 +240,10 @@ func setRemoteAuthOptions(p provision.Provisioner) auth.Options {
 }
 
 func setMinikubeOptions(p *BuildrootProvisioner) error {
-	// pass through --insecure-registry
-	var (
-		crioOptsTmpl = `
-CRIO_MINIKUBE_OPTIONS='{{ range .EngineOptions.InsecureRegistry }}--insecure-registry {{.}} {{ end }}'
-`
-		crioOptsPath = "/etc/sysconfig/crio.minikube"
-	)
-	t, err := template.New("crioOpts").Parse(crioOptsTmpl)
-	if err != nil {
+	if out, err := p.SSHCommand("sudo systemctl daemon-reload"); err != nil {
+		log.Debugf("Error reloading daemon: %v", out)
 		return err
 	}
-	var crioOptsBuf bytes.Buffer
-	if err := t.Execute(&crioOptsBuf, p); err != nil {
-		return err
-	}
-
-	if _, err = p.SSHCommand(fmt.Sprintf("sudo mkdir -p %s && printf %%s \"%s\" | sudo tee %s", path.Dir(crioOptsPath), crioOptsBuf.String(), crioOptsPath)); err != nil {
-		return err
-	}
-
-	// This is unlikely to cause issues unless the user has explicitly requested CRIO, so just log a warning.
-	if err := p.Service("crio", serviceaction.Restart); err != nil {
-		log.Warn("Unable to restart crio service. Error: %v", err)
-	}
-
 	return nil
 }
 
