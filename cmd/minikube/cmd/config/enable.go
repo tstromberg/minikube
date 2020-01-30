@@ -17,6 +17,8 @@ limitations under the License.
 package config
 
 import (
+	"flag"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/minikube/pkg/addons"
@@ -33,13 +35,13 @@ var addonsEnableCmd = &cobra.Command{
 		if len(args) != 1 {
 			exit.UsageT("usage: minikube addons enable ADDON_NAME")
 		}
-
+		flag.Parse()
 		addon := args[0]
 		err := addons.Set(addon, "true", viper.GetString(config.MachineProfile))
 		if err != nil {
 			exit.WithError("enable failed", err)
 		}
-		out.SuccessT("{{.addonName}} was successfully enabled", out.V{"addonName": addon})
+		out.T(out.AddonEnable, "The '{{.addonName}}' addon is enabled", out.V{"addonName": addon})
 	},
 }
 
