@@ -201,7 +201,12 @@ func (k *Bootstrapper) StartCluster(cfg config.MachineConfig) error {
 
 	if driver.IsKIC(cfg.VMDriver) { // to bypass this error: /proc/sys/net/bridge/bridge-nf-call-iptables does not exist
 		ignore = append(ignore, "FileContent--proc-sys-net-bridge-bridge-nf-call-iptables")
+	}
 
+	if driver.BareMetal(cfg.VMDriver) {
+		if err := stopConflictingProcesses(k.c, r); err != nil {
+			glog.Errorf("unable to stop processes: %v", err)
+		}
 	}
 
 	c := exec.Command("/bin/bash", "-c", fmt.Sprintf("%s init --config %s %s --ignore-preflight-errors=%s", bsutil.InvokeKubeadm(cfg.KubernetesConfig.KubernetesVersion), bsutil.KubeadmYamlPath, extraFlags, strings.Join(ignore, ",")))
@@ -497,6 +502,28 @@ func (k *Bootstrapper) applyKicOverlay(cfg config.MachineConfig) error {
 	cmd.Stdin = bytes.NewReader(b.Bytes())
 	if rr, err := k.c.RunCmd(cmd); err != nil {
 		return errors.Wrapf(err, "cmd: %s output: %s", rr.Command(), rr.Output())
+	}
+	return nil
+}
+
+// stops conflicting processes, useful for none driver
+func stopConflictingProcesses(r command.Runner, cr cruntime.Manager) error {
+	glog.Infof("stopping kubelet & kube-system containers")
+
+	cmd := exec.Command("sudo", "systemctl", "stop", "kubelet.service")
+	if _, err := r.RunCmd(cmd); err != nil {
+		glog.Errorf("stop kubelet: %v", err)
+	}
+
+	containers, err := cr.ListContainers(cruntime.ListOptions{Namespaces: []string{"kube-system"}})
+	if err != nil {
+		glog.Warningf("unable to list kube-system containers: %v", err)
+	}
+	if len(containers) > 0 {
+		glog.Warningf("found %d kube-system containers to stop", len(containers))
+		if err := cr.StopContainers(containers); err != nil {
+			return err
+		}
 	}
 	return nil
 }
