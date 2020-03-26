@@ -130,11 +130,7 @@ func (k *Bootstrapper) LogCommands(cfg config.ClusterConfig, o bootstrapper.LogO
 		dmesg.WriteString(fmt.Sprintf(" | tail -n %d", o.Lines))
 	}
 
-<<<<<<< HEAD
-	describeNodes := fmt.Sprintf("sudo %s describe node -A --kubeconfig=%s",
-=======
 	describeNodes := fmt.Sprintf("sudo %s describe nodes --kubeconfig=%s",
->>>>>>> upstream/master
 		path.Join(vmpath.GuestPersistentDir, "binaries", cfg.KubernetesConfig.KubernetesVersion, "kubectl"),
 		path.Join(vmpath.GuestPersistentDir, "kubeconfig"))
 
@@ -167,33 +163,6 @@ func (k *Bootstrapper) clearStaleConfigs(cfg config.ClusterConfig) error {
 	cp, err := config.PrimaryControlPlane(&cfg)
 	if err != nil {
 		return err
-<<<<<<< HEAD
-	}
-
-	paths := []string{
-		"/etc/kubernetes/admin.conf",
-		"/etc/kubernetes/kubelet.conf",
-		"/etc/kubernetes/controller-manager.conf",
-		"/etc/kubernetes/scheduler.conf",
-	}
-
-	endpoint := fmt.Sprintf("https://%s", net.JoinHostPort(cp.IP, strconv.Itoa(cp.Port)))
-	for _, path := range paths {
-		_, err := k.c.RunCmd(exec.Command("sudo", "/bin/bash", "-c", fmt.Sprintf("grep %s %s || sudo rm -f %s", endpoint, path, path)))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// StartCluster starts the cluster
-func (k *Bootstrapper) StartCluster(cfg config.ClusterConfig) error {
-	err := bsutil.ExistingConfig(k.c)
-	if err == nil { // if there is an existing cluster don't reconfigure it
-		return k.restartCluster(cfg)
-=======
->>>>>>> upstream/master
 	}
 
 	paths := []string{

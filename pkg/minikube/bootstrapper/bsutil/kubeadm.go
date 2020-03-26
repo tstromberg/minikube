@@ -93,16 +93,6 @@ func GenerateKubeadmYAML(cc config.ClusterConfig, n config.Node, r cruntime.Mana
 		EtcdDataDir:       EtcdDataDir(),
 		ClusterName:       cc.Name,
 		//kubeadm uses NodeName as the --hostname-override parameter, so this needs to be the name of the machine
-<<<<<<< HEAD
-		NodeName:         driver.MachineName(cc, n),
-		CRISocket:        r.SocketPath(),
-		ImageRepository:  k8s.ImageRepository,
-		ComponentOptions: componentOpts,
-		FeatureArgs:      kubeadmFeatureArgs,
-		NoTaintMaster:    false, // That does not work with k8s 1.12+
-		DNSDomain:        k8s.DNSDomain,
-		NodeIP:           n.IP,
-=======
 		NodeName:            KubeNodeName(cc, n),
 		CRISocket:           r.SocketPath(),
 		ImageRepository:     k8s.ImageRepository,
@@ -111,7 +101,6 @@ func GenerateKubeadmYAML(cc config.ClusterConfig, n config.Node, r cruntime.Mana
 		NoTaintMaster:       false, // That does not work with k8s 1.12+
 		DNSDomain:           k8s.DNSDomain,
 		NodeIP:              n.IP,
->>>>>>> upstream/master
 		ControlPlaneAddress: cp.IP,
 	}
 
