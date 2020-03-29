@@ -86,6 +86,7 @@ var tunnelCmd = &cobra.Command{
 			sshPort := strconv.Itoa(port)
 			sshKey := filepath.Join(localpath.MiniPath(), "machines", cname, "id_rsa")
 
+			glog.Infof("Starting up Docker for macOS tunnel via ssh on port %s", sshPort)
 			kicSSHTunnel := kic.NewSSHTunnel(ctx, sshPort, sshKey, clientset.CoreV1())
 			err = kicSSHTunnel.Start()
 			if err != nil {

@@ -294,6 +294,7 @@ func APIServerStatus(cr command.Runner, ip net.IP, port int) (state.State, error
 
 // apiServerHealthz hits the /healthz endpoint and returns libmachine style state.State
 func apiServerHealthz(ip net.IP, port int) (state.State, error) {
+	start := time.Now()
 	url := fmt.Sprintf("https://%s/healthz", net.JoinHostPort(ip.String(), fmt.Sprint(port)))
 	glog.Infof("Checking apiserver healthz at %s ...", url)
 	// To avoid: x509: certificate signed by unknown authority
@@ -316,6 +317,7 @@ func apiServerHealthz(ip net.IP, port int) (state.State, error) {
 		glog.Warningf("%s response: %v %+v", url, err, resp)
 		return state.Error, nil
 	}
+	glog.Infof("apiserver healthz check passed in %s", time.Since(start))
 	return state.Running, nil
 }
 

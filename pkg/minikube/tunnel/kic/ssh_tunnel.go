@@ -56,6 +56,7 @@ func NewSSHTunnel(ctx context.Context, sshPort, sshKey string, v1Core typed_core
 
 // Start ...
 func (t *SSHTunnel) Start() error {
+	glog.Infof("Starting loop to find LoadBalancer services to tunnel ...")
 	for {
 		select {
 		case <-t.ctx.Done():
