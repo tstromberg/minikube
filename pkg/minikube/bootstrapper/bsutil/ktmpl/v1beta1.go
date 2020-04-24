@@ -73,6 +73,7 @@ networking:
 ---
 apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
+# disable disk resource management by default
 imageGCHighThresholdPercent: 100
 evictionHard:
   nodefs.available: "0%"
@@ -81,5 +82,9 @@ evictionHard:
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
+clusterCIDR: "{{.PodSubnet }}"
 metricsBindAddress: {{.AdvertiseAddress}}:10249
+{{- range $i, $val := printMapInOrder .KubeProxyOptions ": " }}
+{{$val}}
+{{- end}}
 `))

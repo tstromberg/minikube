@@ -106,8 +106,9 @@ func recreateIfNeeded(api libmachine.API, cc config.ClusterConfig, n config.Node
 	if serr != nil || s == state.Stopped || s == state.None {
 		// If virtual machine does not exist due to user interrupt cancel(i.e. Ctrl + C), recreate virtual machine
 		me, err := machineExists(h.Driver.DriverName(), s, serr)
-		glog.Infof("exists: %v err=%v", me, err)
-		glog.Infof("%q vs %q", err, constants.ErrMachineMissing)
+		if err != nil {
+			glog.Infof("machineExists: %t. err=%v", me, err)
+		}
 
 		if !me || err == constants.ErrMachineMissing {
 			out.T(out.Shrug, `{{.driver_name}} "{{.cluster}}" {{.machine_type}} is missing, will recreate.`, out.V{"driver_name": cc.Driver, "cluster": cc.Name, "machine_type": machineType})
@@ -161,7 +162,7 @@ func maybeWarnAboutEvalEnv(drver string, name string) {
 	}
 	out.T(out.Notice, "Noticed you have an activated docker-env on {{.driver_name}} driver in this terminal:", out.V{"driver_name": drver})
 	// TODO: refactor docker-env package to generate only eval command per shell. https://github.com/kubernetes/minikube/issues/6887
-	out.T(out.Warning, `Please re-eval your docker-env, To ensure your environment variables have updated ports: 
+	out.WarningT(`Please re-eval your docker-env, To ensure your environment variables have updated ports: 
 
 	'minikube -p {{.profile_name}} docker-env'
 

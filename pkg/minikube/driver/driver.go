@@ -19,6 +19,7 @@ package driver
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -128,9 +129,25 @@ func NeedsRoot(name string) bool {
 	return name == None || name == Podman
 }
 
+// NeedsPortForward returns true if driver is unable provide direct IP connectivity
+func NeedsPortForward(name string) bool {
+	// Docker for Desktop
+	return IsKIC(name) && (runtime.GOOS == "darwin" || runtime.GOOS == "windows")
+}
+
 // HasResourceLimits returns true if driver can set resource limits such as memory size or CPU count.
 func HasResourceLimits(name string) bool {
 	return !(name == None || name == Podman)
+}
+
+// NeedsShutdown returns true if driver needs manual shutdown command before stopping.
+// Hyper-V requires special care to avoid ACPI and file locking issues
+// KIC also needs shutdown to avoid container getting stuck, https://github.com/kubernetes/minikube/issues/7657
+func NeedsShutdown(name string) bool {
+	if name == HyperV || IsKIC(name) {
+		return true
+	}
+	return false
 }
 
 // FlagHints are hints for what default options should be used for this driver
@@ -174,8 +191,8 @@ func Choices(vm bool) []registry.DriverState {
 	return options
 }
 
-// Suggest returns a suggested driver from a set of options
-func Suggest(options []registry.DriverState) (registry.DriverState, []registry.DriverState) {
+// Suggest returns a suggested driver, alternate drivers, and rejected drivers
+func Suggest(options []registry.DriverState) (registry.DriverState, []registry.DriverState, []registry.DriverState) {
 	pick := registry.DriverState{}
 	for _, ds := range options {
 		if !ds.State.Installed {
@@ -198,17 +215,29 @@ func Suggest(options []registry.DriverState) (registry.DriverState, []registry.D
 	}
 
 	alternates := []registry.DriverState{}
+	rejects := []registry.DriverState{}
 	for _, ds := range options {
 		if ds != pick {
-			if !ds.State.Healthy || !ds.State.Installed {
+			if !ds.State.Installed {
+				ds.Rejection = fmt.Sprintf("Not installed: %v", ds.State.Error)
+				rejects = append(rejects, ds)
 				continue
 			}
+
+			if !ds.State.Healthy {
+				ds.Rejection = fmt.Sprintf("Not healthy: %v", ds.State.Error)
+				rejects = append(rejects, ds)
+				continue
+			}
+
+			ds.Rejection = fmt.Sprintf("%s is preferred", pick.Name)
 			alternates = append(alternates, ds)
 		}
 	}
 	glog.Infof("Picked: %+v", pick)
 	glog.Infof("Alternatives: %+v", alternates)
-	return pick, alternates
+	glog.Infof("Rejects: %+v", rejects)
+	return pick, alternates, rejects
 }
 
 // Status returns the status of a driver

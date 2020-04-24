@@ -14,8 +14,8 @@
 
 # Bump these on release - and please check ISO_VERSION for correctness.
 VERSION_MAJOR ?= 1
-VERSION_MINOR ?= 9
-VERSION_BUILD ?= 0
+VERSION_MINOR ?= 10
+VERSION_BUILD ?= 0-beta.1
 RAW_VERSION=$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_BUILD)
 VERSION ?= v$(RAW_VERSION)
 
@@ -111,7 +111,7 @@ MINIKUBE_TEST_FILES := ./cmd/... ./pkg/...
 MARKDOWNLINT ?= markdownlint
 
 
-MINIKUBE_MARKDOWN_FILES := README.md docs CONTRIBUTING.md CHANGELOG.md
+MINIKUBE_MARKDOWN_FILES := README.md CONTRIBUTING.md CHANGELOG.md
 
 MINIKUBE_BUILD_TAGS := container_image_ostree_stub containers_image_openpgp
 MINIKUBE_BUILD_TAGS += go_getter_nos3 go_getter_nogcs
@@ -255,7 +255,7 @@ docker-machine-driver-hyperkit: out/docker-machine-driver-hyperkit ## Build Hype
 docker-machine-driver-kvm2: out/docker-machine-driver-kvm2 ## Build KVM2 driver
 
 .PHONY: integration
-integration: out/minikube ## Trigger minikube integration test
+integration: out/minikube$(IS_EXE) ## Trigger minikube integration test
 	go test -v -test.timeout=60m ./test/integration --tags="$(MINIKUBE_INTEGRATION_BUILD_TAGS)" $(TEST_ARGS)
 
 .PHONY: integration-none-driver
@@ -268,11 +268,15 @@ integration-versioned: out/minikube ## Trigger minikube integration testing
 
 .PHONY: test
 test: pkg/minikube/assets/assets.go pkg/minikube/translate/translations.go ## Trigger minikube test
-	./test.sh
+	MINIKUBE_LDFLAGS="${MINIKUBE_LDFLAGS}" ./test.sh
+
+.PHONY: generate-docs
+generate-docs: out/minikube ## Automatically generate commands documentation.
+	out/minikube generate-docs --path ./site/content/en/docs/commands/
 
 .PHONY: gotest
 gotest: $(SOURCE_GENERATED) ## Trigger minikube test
-	go test -tags "$(MINIKUBE_BUILD_TAGS)" $(MINIKUBE_TEST_FILES)
+	go test -tags "$(MINIKUBE_BUILD_TAGS)" -ldflags="$(MINIKUBE_LDFLAGS)" $(MINIKUBE_TEST_FILES)
 
 .PHONY: extract
 extract: ## Compile extract tool
@@ -392,6 +396,10 @@ reportcard: ## Run goreportcard for minikube
 .PHONY: mdlint
 mdlint:
 	@$(MARKDOWNLINT) $(MINIKUBE_MARKDOWN_FILES)
+
+.PHONY: verify-iso
+verify-iso: # Make sure the current ISO exists in the expected bucket
+	gsutil stat gs://$(ISO_BUCKET)/minikube-$(ISO_VERSION).iso
 
 out/docs/minikube.md: $(shell find "cmd") $(shell find "pkg/minikube/constants") pkg/minikube/assets/assets.go pkg/minikube/translate/translations.go
 	go run -ldflags="$(MINIKUBE_LDFLAGS)" -tags gendocs hack/help_text/gen_help_text.go

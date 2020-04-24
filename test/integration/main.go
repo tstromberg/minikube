@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -68,9 +69,25 @@ func HyperVDriver() bool {
 	return strings.Contains(*startArgs, "--driver=hyperv") || strings.Contains(*startArgs, "--vm-driver=hyperv")
 }
 
+// DockerDriver returns whether or not this test is using the docker or podman driver
+func DockerDriver() bool {
+	return strings.Contains(*startArgs, "--driver=docker") || strings.Contains(*startArgs, "--vm-driver=docker")
+}
+
+// PodmanDriver returns whether or not this test is using the docker or podman driver
+func PodmanDriver() bool {
+	return strings.Contains(*startArgs, "--vm-driver=podman") || strings.Contains(*startArgs, "driver=podman")
+}
+
 // KicDriver returns whether or not this test is using the docker or podman driver
 func KicDriver() bool {
-	return strings.Contains(*startArgs, "--driver=docker") || strings.Contains(*startArgs, "--vm-driver=docker") || strings.Contains(*startArgs, "--vm-driver=podman") || strings.Contains(*startArgs, "driver=podman")
+	return DockerDriver() || PodmanDriver()
+}
+
+// NeedsPortForward returns access to endpoints with this driver needs port forwarding
+// (Docker on non-Linux platforms requires ports to be forwarded to 127.0.0.1)
+func NeedsPortForward() bool {
+	return KicDriver() && (runtime.GOOS == "windows" || runtime.GOOS == "darwin")
 }
 
 // CanCleanup returns if cleanup is allowed

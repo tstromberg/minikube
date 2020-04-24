@@ -44,7 +44,7 @@ func TestStartStop(t *testing.T) {
 			version string
 			args    []string
 		}{
-			{"old-docker", constants.OldestKubernetesVersion, []string{
+			{"old-k8s-version", constants.OldestKubernetesVersion, []string{
 				// default is the network created by libvirt, if we change the name minikube won't boot
 				// because the given network doesn't exist
 				"--kvm-network=default",
@@ -71,6 +71,9 @@ func TestStartStop(t *testing.T) {
 				"--disable-driver-mounts",
 				"--extra-config=kubeadm.ignore-preflight-errors=SystemVerification",
 			}},
+			{"embed-certs", constants.DefaultKubernetesVersion, []string{
+				"--embed-certs",
+			}},
 		}
 
 		for _, tc := range tests {
@@ -86,7 +89,12 @@ func TestStartStop(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), Minutes(40))
 				defer CleanupWithLogs(t, profile, cancel)
 
-				startArgs := append([]string{"start", "-p", profile, "--memory=2200", "--alsologtostderr", "-v=3", "--wait=true"}, tc.args...)
+				waitFlag := "--wait=true"
+				if strings.Contains(tc.name, "cni") { // wait=app_running is broken for CNI https://github.com/kubernetes/minikube/issues/7354
+					waitFlag = "--wait=apiserver,system_pods,default_sa"
+				}
+
+				startArgs := append([]string{"start", "-p", profile, "--memory=2200", "--alsologtostderr", "-v=3", waitFlag}, tc.args...)
 				startArgs = append(startArgs, StartArgs()...)
 				startArgs = append(startArgs, fmt.Sprintf("--kubernetes-version=%s", tc.version))
 
@@ -127,10 +135,10 @@ func TestStartStop(t *testing.T) {
 				if strings.Contains(tc.name, "cni") {
 					t.Logf("WARNING: cni mode requires additional setup before pods can schedule :(")
 				} else {
-					if _, err := PodWait(ctx, t, profile, "default", "integration-test=busybox", Minutes(4)); err != nil {
+					if _, err := PodWait(ctx, t, profile, "default", "integration-test=busybox", Minutes(7)); err != nil {
 						t.Fatalf("failed waiting for pod 'busybox' post-stop-start: %v", err)
 					}
-					if _, err := PodWait(ctx, t, profile, "kubernetes-dashboard", "k8s-app=kubernetes-dashboard", Minutes(4)); err != nil {
+					if _, err := PodWait(ctx, t, profile, "kubernetes-dashboard", "k8s-app=kubernetes-dashboard", Minutes(9)); err != nil {
 						t.Fatalf("failed waiting for 'addon dashboard' pod post-stop-start: %v", err)
 					}
 				}
@@ -164,50 +172,6 @@ func TestStartStop(t *testing.T) {
 			})
 		}
 	})
-}
-
-func TestStartStopWithPreload(t *testing.T) {
-	if NoneDriver() {
-		t.Skipf("skipping %s - incompatible with none driver", t.Name())
-	}
-
-	profile := UniqueProfileName("test-preload")
-	ctx, cancel := context.WithTimeout(context.Background(), Minutes(40))
-	defer CleanupWithLogs(t, profile, cancel)
-
-	startArgs := []string{"start", "-p", profile, "--memory=2200", "--alsologtostderr", "-v=3", "--wait=true", "--preload=false"}
-	startArgs = append(startArgs, StartArgs()...)
-	k8sVersion := "v1.17.0"
-	startArgs = append(startArgs, fmt.Sprintf("--kubernetes-version=%s", k8sVersion))
-
-	rr, err := Run(t, exec.CommandContext(ctx, Target(), startArgs...))
-	if err != nil {
-		t.Fatalf("%s failed: %v", rr.Command(), err)
-	}
-
-	// Now, pull the busybox image into the VMs docker daemon
-	image := "busybox"
-	rr, err = Run(t, exec.CommandContext(ctx, Target(), "ssh", "-p", profile, "--", "docker", "pull", image))
-	if err != nil {
-		t.Fatalf("%s failed: %v", rr.Command(), err)
-	}
-
-	// Restart minikube with v1.17.3, which has a preloaded tarball
-	startArgs = []string{"start", "-p", profile, "--memory=2200", "--alsologtostderr", "-v=3", "--wait=true"}
-	startArgs = append(startArgs, StartArgs()...)
-	k8sVersion = "v1.17.3"
-	startArgs = append(startArgs, fmt.Sprintf("--kubernetes-version=%s", k8sVersion))
-	rr, err = Run(t, exec.CommandContext(ctx, Target(), startArgs...))
-	if err != nil {
-		t.Fatalf("%s failed: %v", rr.Command(), err)
-	}
-	rr, err = Run(t, exec.CommandContext(ctx, Target(), "ssh", "-p", profile, "--", "docker", "images"))
-	if err != nil {
-		t.Fatalf("%s failed: %v", rr.Command(), err)
-	}
-	if !strings.Contains(rr.Output(), image) {
-		t.Fatalf("Expected to find %s in output of `docker images`, instead got %s", image, rr.Output())
-	}
 }
 
 // testPodScheduling asserts that this configuration can schedule new pods
@@ -257,7 +221,7 @@ func testPulledImages(ctx context.Context, t *testing.T, profile string, version
 	}{}
 	err = json.Unmarshal(rr.Stdout.Bytes(), &jv)
 	if err != nil {
-		t.Errorf("failed to decode images json %v. output: %q", err, rr.Output())
+		t.Errorf("failed to decode images json %v. output: %s", err, rr.Output())
 	}
 	found := map[string]bool{}
 	for _, img := range jv["images"] {

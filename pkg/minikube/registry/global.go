@@ -22,6 +22,7 @@ import (
 	"sort"
 
 	"github.com/golang/glog"
+	"k8s.io/minikube/pkg/minikube/translate"
 )
 
 const (
@@ -68,11 +69,14 @@ type DriverState struct {
 	Name     string
 	Priority Priority
 	State    State
+	// Rejection is why we chose not to use this driver
+	Rejection string
 }
 
 func (d DriverState) String() string {
 	if d.Priority == Experimental {
-		return fmt.Sprintf("%s (experimental)", d.Name)
+		experimental := translate.T("experimental")
+		return fmt.Sprintf("%s (%s)", d.Name, experimental)
 	}
 	return d.Name
 }
