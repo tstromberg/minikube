@@ -39,7 +39,6 @@ import (
 	"k8s.io/minikube/pkg/minikube/machine"
 	"k8s.io/minikube/pkg/minikube/out"
 	"k8s.io/minikube/pkg/minikube/storageclass"
-	"k8s.io/minikube/pkg/util/retry"
 )
 
 // defaultStorageClassProvisioner is the name of the default storage class provisioner
@@ -258,7 +257,7 @@ func enableOrDisableAddonInternal(cc *config.ClusterConfig, addon *assets.Addon,
 		return err
 	}
 
-	return retry.Expo(apply, 250*time.Millisecond, 2*time.Minute)
+	return wait.PollImediate(2*time.Second, 2*time.Minute, apply)
 }
 
 // enableOrDisableStorageClasses enables or disables storage classes
