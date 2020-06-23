@@ -39,6 +39,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/bootstrapper"
 	"k8s.io/minikube/pkg/minikube/bootstrapper/images"
 	"k8s.io/minikube/pkg/minikube/cluster"
+	"k8s.io/minikube/pkg/minikube/cni"
 	"k8s.io/minikube/pkg/minikube/command"
 	"k8s.io/minikube/pkg/minikube/config"
 	"k8s.io/minikube/pkg/minikube/constants"
@@ -163,7 +164,7 @@ func Start(starter Starter, apiServer bool) (*kubeconfig.Settings, error) {
 		}
 
 		// Make sure to use the command runner for the control plane to generate the join token
-		cpBs, err := cluster.ControlPlaneBootstrapper(starter.MachineAPI, starter.Cfg, viper.GetString(cmdcfg.Bootstrapper))
+		cpBs, cpr, err := cluster.ControlPlaneBootstrapper(starter.MachineAPI, starter.Cfg, viper.GetString(cmdcfg.Bootstrapper))
 		if err != nil {
 			return nil, errors.Wrap(err, "getting control plane bootstrapper")
 		}
@@ -175,6 +176,15 @@ func Start(starter Starter, apiServer bool) (*kubeconfig.Settings, error) {
 
 		if err = bs.JoinCluster(*starter.Cfg, *starter.Node, joinCmd); err != nil {
 			return nil, errors.Wrap(err, "joining cluster")
+		}
+
+		cnm, err := cni.New(*starter.Cfg)
+		if err != nil {
+			return nil, errors.Wrap(err, "cni")
+		}
+
+		if err := cnm.Apply(cpr, []cni.Runner{cpr, starter.Runner}); err != nil {
+			return nil, errors.Wrap(err, "cni apply")
 		}
 	}
 
