@@ -154,13 +154,14 @@ func Start(starter Starter, apiServer bool) (*kubeconfig.Settings, error) {
 			prepareNone()
 		}
 
+		glog.Infof("Will wait %s for node ...", waitTimeout)
 		if err := bs.WaitForNode(*starter.Cfg, *starter.Node, viper.GetDuration(waitTimeout)); err != nil {
-			return nil, errors.Wrap(err, "Wait failed")
+			return nil, errors.Wrapf(err, "wait %s for node", viper.GetDuration(waitTimeout))
 		}
 
 	} else {
 		if err := bs.UpdateNode(*starter.Cfg, *starter.Node, cr); err != nil {
-			return nil, errors.Wrap(err, "Updating node")
+			return nil, errors.Wrap(err, "update node")
 		}
 
 		// Make sure to use the command runner for the control plane to generate the join token
@@ -188,6 +189,7 @@ func Start(starter Starter, apiServer bool) (*kubeconfig.Settings, error) {
 		}
 	}
 
+	glog.Infof("waiting for startup goroutines ...")
 	wg.Wait()
 
 	// Write enabled addons to the config before completion
