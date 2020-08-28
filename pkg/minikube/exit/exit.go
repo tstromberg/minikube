@@ -25,30 +25,32 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/minikube/pkg/minikube/out"
 	"k8s.io/minikube/pkg/minikube/problem"
-)
 
-// UsageT outputs a templated usage error and exits with error code 64
-func UsageT(format string, a ...out.V) {
-	exitcode := problem.ProgramUsage
-	out.ErrWithExitCode(out.Usage, format, exitcode, a...)
-	os.Exit(exitcode)
-}
 
-// WithCodeT outputs a templated fatal error message and exits with the supplied error code.
-func WithCodeT(code int, format string, a ...out.V) {
+
+// Usage outputs a usage message
+func Message(reason string, format string, a ...out.V) {
+	//	problem := problem.FromError(id, err, runtime.GOOS)
+	out.ErrWithExitCode(out.FatalType, format, code, a...)
+	os.Exit()
+}	)
+
+// Message outputs a templated fatal error message and exits with the supplied error code.
+func Message(reason string, format string, a ...out.V) {
+//	problem := problem.FromError(id, err, runtime.GOOS)
 	out.ErrWithExitCode(out.FatalType, format, code, a...)
 	os.Exit(code)
-}
+}		
 
-// WithError outputs an error and exits.
-func WithError(id string, msg string, err error) {
+// Error outputs an error and exits.
+func Error(id string, msg string, err error) {
 	glog.Infof("WithError(%s, %v) called from:\n%s", msg, err, debug.Stack())
 	problem := problem.FromError(id, err, runtime.GOOS)
 	WithProblem(*problem, "Error: {{.err}}", out.V{"err": err})
 }
 
-// WithProblem outputs an error and exits.
-func WithProblem(p problem.Problem, format string, a ...out.V) {
+// KnownIssue
+func KnownIssue(p problem.Problem, format string, a ...out.V) {
 	glog.Infof("WithProblem(%+v, %s, %s) called from:\n%s", p, format, a, debug.Stack())
 
 	if p.ExitCode == 0 {
