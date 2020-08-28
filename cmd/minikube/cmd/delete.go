@@ -193,7 +193,7 @@ func runDelete(cmd *cobra.Command, args []string) {
 func purgeMinikubeDirectory() {
 	glog.Infof("Purging the '.minikube' directory located at %s", localpath.MiniPath())
 	if err := os.RemoveAll(localpath.MiniPath()); err != nil {
-		exit.WithError("HOST_PURGE_FAILED", "unable to delete minikube config folder", err)
+		exit.WithError("HOST_PURGE", "unable to delete minikube config folder", err)
 	}
 	out.T(out.Deleted, "Successfully purged minikube directory located at - [{{.minikubeDirectory}}]", out.V{"minikubeDirectory": localpath.MiniPath()})
 }
@@ -460,7 +460,7 @@ func handleSingleDeletionError(err error) {
 			out.FatalT(deletionError.Error())
 		}
 	} else {
-		exit.WithError("GUEST_DELETION_FAILED", "Could not process error from failed deletion", err)
+		exit.WithError("GUEST_DELETION", "Could not process error from failed deletion", err)
 	}
 }
 
@@ -473,7 +473,7 @@ func handleMultipleDeletionErrors(errors []error) {
 		if ok {
 			glog.Errorln(deletionError.Error())
 		} else {
-			exit.WithError("GUEST_DELETION_FAILED", "Could not process errors from failed deletion", err)
+			exit.WithError("GUEST_DELETION", "Could not process errors from failed deletion", err)
 		}
 	}
 }

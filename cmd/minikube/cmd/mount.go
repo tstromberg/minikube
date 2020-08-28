@@ -187,7 +187,7 @@ var mountCmd = &cobra.Command{
 
 		err = cluster.Mount(co.CP.Runner, ip.String(), vmPath, cfg)
 		if err != nil {
-			exit.WithError("GUEST_MOUNT_FAILED", "mount failed", err)
+			exit.WithError("GUEST_MOUNT", "mount failed", err)
 		}
 		out.T(out.SuccessType, "Successfully mounted {{.sourcePath}} to {{.destinationPath}}", out.V{"sourcePath": hostPath, "destinationPath": vmPath})
 		out.Ln("")

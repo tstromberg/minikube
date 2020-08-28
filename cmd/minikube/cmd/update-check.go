@@ -32,11 +32,11 @@ var updateCheckCmd = &cobra.Command{
 		url := notify.GithubMinikubeReleasesURL
 		r, err := notify.GetAllVersionsFromURL(url)
 		if err != nil {
-			exit.WithError(exit.ProgramError, "Unable to fetch latest version info", err)
+			exit.WithError("INET_GET_VERSIONS", "Unable to fetch latest version info", err)
 		}
 
 		if len(r) < 1 {
-			exit.WithCodeT(exit.ServiceError, "Update server returned an empty list")
+			exit.WithCodeT("INET_EMPTY_VERSIONS", "Update server returned an empty list")
 		}
 
 		out.Ln("CurrentVersion: %s", version.GetVersion())

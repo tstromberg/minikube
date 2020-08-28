@@ -87,7 +87,7 @@ func runPause(cmd *cobra.Command, args []string) {
 
 		uids, err := cluster.Pause(cr, r, namespaces)
 		if err != nil {
-			exit.WithError("GUEST_PAUSE_FAILED", "Pause", err)
+			exit.WithError("GUEST_PAUSE", "Pause", err)
 		}
 		ids = append(ids, uids...)
 	}

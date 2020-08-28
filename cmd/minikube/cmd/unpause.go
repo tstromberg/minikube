@@ -71,22 +71,22 @@ var unpauseCmd = &cobra.Command{
 			machineName := driver.MachineName(*co.Config, n)
 			host, err := machine.LoadHost(co.API, machineName)
 			if err != nil {
-				exit.WithError(exit.ProgramError, "Error getting host", err)
+				exit.WithError("GUEST_LOAD_HOST", "Error getting host", err)
 			}
 
 			r, err := machine.CommandRunner(host)
 			if err != nil {
-				exit.WithError(exit.ProgramError, "Failed to get command runner", err)
+				exit.WithError("MK_CMD_RUNNER", "Failed to get command runner", err)
 			}
 
 			cr, err := cruntime.New(cruntime.Config{Type: co.Config.KubernetesConfig.ContainerRuntime, Runner: r})
 			if err != nil {
-				exit.WithError(exit.ProgramError, "Failed runtime", err)
+				exit.WithError("MK_NEW_RUNTIME", "Failed runtime", err)
 			}
 
 			uids, err := cluster.Unpause(cr, r, namespaces)
 			if err != nil {
-				exit.WithError(exit.ProgramError, "Pause", err)
+				exit.WithError("GUEST_UNPAUSE", "Pause", err)
 			}
 			ids = append(ids, uids...)
 		}

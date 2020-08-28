@@ -51,17 +51,17 @@ var versionCmd = &cobra.Command{
 		case "json":
 			json, err := json.Marshal(data)
 			if err != nil {
-				exit.WithError(exit.ProgramError, "version json failure", err)
+				exit.WithError("MK_JSON_MARSHAL", "version json failure", err)
 			}
 			out.Ln(string(json))
 		case "yaml":
 			yaml, err := yaml.Marshal(data)
 			if err != nil {
-				exit.WithError(exit.ProgramError, "version yaml failure", err)
+				exit.WithError("MK_YAML_MARSHAL", "version yaml failure", err)
 			}
 			out.Ln(string(yaml))
 		default:
-			exit.WithCodeT(exit.ProgramUsage, "error: --output must be 'yaml' or 'json'")
+			exit.WithCodeT("MK_OUTPUT_USAGE", "error: --output must be 'yaml' or 'json'")
 		}
 	},
 }

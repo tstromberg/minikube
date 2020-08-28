@@ -124,7 +124,7 @@ var HostIssues = []Problem{
 		ExitCode: HostUsage,
 	},
 	{
-		ID:       "HOST_KUBECONFIG_WRITE_FAIL",
+		ID:       "HOST_KUBECONFIG_WRITE",
 		Regexp:   re(`Failed to setup kubeconfig: writing kubeconfig`),
 		Advice:   "Unset the KUBECONFIG environment variable, or verify that it does not point to an empty or otherwise invalid path",
 		Issues:   []int{5268, 4100, 5207},
@@ -282,7 +282,7 @@ var ProviderIssues = []Problem{
 		ExitCode: ProviderConfig,
 	},
 	{
-		ID:       "PR_KVM_FAILED_MSR",
+		ID:       "PR_KVM_MSR",
 		Regexp:   re(`qemu unexpectedly closed the monitor.*failed to set MSR`),
 		Advice:   "Upgrade to QEMU v3.1.0+, run 'virt-host-validate', or ensure that you are not running in a nested VM environment.",
 		Issues:   []int{4277},
@@ -301,7 +301,7 @@ var ProviderIssues = []Problem{
 	// VirtualBox provider
 	{
 		ID:       "PR_VBOX_BLOCKED",
-		Regexp:   re(`NS_ERROR_FAILURE.*0x80004005`),
+		Regexp:   re(`NS_ERROR.*0x80004005`),
 		Advice:   "Reinstall VirtualBox and verify that it is not blocked: System Preferences -> Security & Privacy -> General -> Some system software was blocked from loading",
 		Issues:   []int{4107},
 		GOOS:     []string{"darwin"},
@@ -332,7 +332,7 @@ var ProviderIssues = []Problem{
 	},
 	{
 		ID:       "PR_VBOX_80004005",
-		Regexp:   re(`terminated unexpectedly.*NS_ERROR_FAILURE.*0x80004005`),
+		Regexp:   re(`terminated unexpectedly.*NS_ERROR.*0x80004005`),
 		Advice:   "VirtualBox is broken. Reinstall VirtualBox, reboot, and run 'minikube delete'.",
 		Issues:   []int{5227},
 		GOOS:     []string{"linux"},
@@ -347,7 +347,7 @@ var ProviderIssues = []Problem{
 	},
 	{
 		ID:       "PR_VBOX_HYPERV_CONFLICT",
-		Regexp:   re(`vrc=VERR_NEM_VM_CREATE_FAILED`),
+		Regexp:   re(`vrc=VERR_NEM_VM_CREATE`),
 		Advice:   "VirtualBox and Hyper-V are having a conflict. Use '--driver=hyperv' or disable Hyper-V using: 'bcdedit /set hypervisorlaunchtype off'",
 		Issues:   []int{4587},
 		ExitCode: ProviderConflict,
@@ -439,7 +439,7 @@ var DriverIssues = []Problem{
 	},
 
 	{
-		ID:       "HYPERV_FILE_DELETE_FAILURE",
+		ID:       "HYPERV_FILE_DELETE",
 		Regexp:   re(`Unable to remove machine directory`),
 		Advice:   "You may need to stop the Hyper-V Manager and run `minikube delete` again.",
 		Issues:   []int{6804},
@@ -484,7 +484,7 @@ const (
 // LocalNetworkIssues are errors communicating to the guest
 var LocalNetworkIssues = []Problem{
 	{
-		ID:       "IF_SSH_AUTH_FAIL",
+		ID:       "IF_SSH_AUTH",
 		Regexp:   re(`ssh: handshake failed: ssh: unable to authenticate.*, no supported methods remain`),
 		Advice:   "Your host is failing to route packets to the minikube VM. If you have VPN software, try turning it off or configuring it so that it does not re-route traffic to the VM IP. If not, check your VM environment routing options.",
 		URL:      vpnDoc,
@@ -702,7 +702,7 @@ var GuestIssues = []Problem{
 // RuntimeIssues are container runtime issues (containerd, docker, etc)
 var RuntimeIssues = []Problem{
 	{
-		ID:       "RT_DOCKER_RESTART_FAILED",
+		ID:       "RT_DOCKER_RESTART",
 		Regexp:   re(`systemctl -f restart docker`),
 		Advice:   "Remove the incompatible --docker-opt flag if one was provided",
 		Issues:   []int{7070},

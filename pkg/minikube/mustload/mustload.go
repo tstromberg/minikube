@@ -90,7 +90,7 @@ func Running(name string) ClusterController {
 	machineName := driver.MachineName(*cc, cp)
 	hs, err := machine.Status(api, machineName)
 	if err != nil {
-		exit.WithError("GUEST_STATUS_FAILED", "Unable to get machine status", err)
+		exit.WithError("GUEST_STATUS", "Unable to get machine status", err)
 	}
 
 	if hs == state.None.String() {

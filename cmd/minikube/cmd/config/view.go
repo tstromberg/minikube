@@ -43,7 +43,7 @@ var configViewCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := View()
 		if err != nil {
-			exit.WithError(exit.ProgramError, "config view failed", err)
+			exit.WithError("MK_CONFIG_VIEW", "config view failed", err)
 		}
 	},
 }

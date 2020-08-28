@@ -76,7 +76,7 @@ var dashboardCmd = &cobra.Command{
 			// Enable the dashboard add-on
 			err = addons.SetAndSave(cname, "dashboard", "true")
 			if err != nil {
-				exit.WithError("ADDON_ENABLE_FAILED", "Unable to enable dashboard", err)
+				exit.WithError("ADDON_ENABLE", "Unable to enable dashboard", err)
 			}
 		}
 
@@ -112,7 +112,7 @@ var dashboardCmd = &cobra.Command{
 		} else {
 			out.T(out.Celebrate, "Opening {{.url}} in your default browser...", out.V{"url": url})
 			if err = browser.OpenURL(url); err != nil {
-				exit.WithCodeT("HOST_BROWSER_FAILED", "failed to open browser: {{.error}}", out.V{"error": err})
+				exit.WithCodeT("HOST_BROWSER", "failed to open browser: {{.error}}", out.V{"error": err})
 			}
 		}
 

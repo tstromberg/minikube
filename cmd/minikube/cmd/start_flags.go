@@ -250,12 +250,12 @@ func generateClusterConfig(cmd *cobra.Command, existing *config.ClusterConfig, k
 		if strings.ToLower(repository) == "auto" || (mirrorCountry != "" && repository == "") {
 			found, autoSelectedRepository, err := selectImageRepository(mirrorCountry, semver.MustParse(strings.TrimPrefix(k8sVersion, version.VersionPrefix)))
 			if err != nil {
-				exit.WithError(exit.ProgramError, "Failed to check main repository and mirrors for images", err)
+				exit.WithError("INET_REPO", "Failed to check main repository and mirrors for images", err)
 			}
 
 			if !found {
 				if autoSelectedRepository == "" {
-					exit.WithCodeT(exit.InternetUnavailable, "None of the known repositories are accessible. Consider specifying an alternative image repository with --image-repository flag")
+					exit.WithCodeT("INET_REPOS_UNAVAILABLE", "None of the known repositories are accessible. Consider specifying an alternative image repository with --image-repository flag")
 				} else {
 					out.WarningT("None of the known repositories in your location are accessible. Using {{.image_repository_name}} as fallback.", out.V{"image_repository_name": autoSelectedRepository})
 				}

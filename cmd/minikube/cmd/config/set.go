@@ -39,7 +39,7 @@ var configSetCmd = &cobra.Command{
 		}
 		err := Set(args[0], args[1])
 		if err != nil {
-			exit.WithError("MK_SET_FAILED", "Set failed", err)
+			exit.WithError("MK_SET", "Set failed", err)
 		}
 	},
 }
