@@ -115,7 +115,7 @@ var podmanEnvCmd = &cobra.Command{
 
 		if podmanUnset {
 			if err := podmanUnsetScript(PodmanEnvConfig{EnvConfig: sh}, os.Stdout); err != nil {
-				exit.WithError("MK_UNSET_SCRIPT", "Error generating unset output", err)
+				exit.Error(reason.MkUnsetScript, "Error generating unset output", err)
 			}
 			return
 		}
@@ -138,7 +138,7 @@ var podmanEnvCmd = &cobra.Command{
 
 		client, err := createExternalSSHClient(co.CP.Host.Driver)
 		if err != nil {
-			exit.WithError("NET_SSH_CLIENT", "Error getting ssh client", err)
+			exit.Error(reason.NetSshClient, "Error getting ssh client", err)
 		}
 
 		ec := PodmanEnvConfig{
@@ -151,12 +151,12 @@ var podmanEnvCmd = &cobra.Command{
 		if ec.Shell == "" {
 			ec.Shell, err = shell.Detect()
 			if err != nil {
-				exit.WithError("MK_SHELL_DETECT", "Error detecting shell", err)
+				exit.Error(reason.MkShellDetect, "Error detecting shell", err)
 			}
 		}
 
 		if err := podmanSetScript(ec, os.Stdout); err != nil {
-			exit.WithError("MK_SET_SCRIPT", "Error generating set output", err)
+			exit.Error(reason.MkSetScript, "Error generating set output", err)
 		}
 	},
 }

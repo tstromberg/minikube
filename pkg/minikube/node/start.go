@@ -246,7 +246,7 @@ func configureRuntimes(runner cruntime.CommandRunner, cc config.ClusterConfig, k
 	}
 	cr, err := cruntime.New(co)
 	if err != nil {
-		exit.WithError("MK_RUNTIME", "Failed runtime", err)
+		exit.Error(reason.MkRuntime, "Failed runtime", err)
 	}
 
 	disableOthers := true
@@ -266,14 +266,14 @@ func configureRuntimes(runner cruntime.CommandRunner, cc config.ClusterConfig, k
 			}
 
 			if err := machine.CacheImagesForBootstrapper(cc.KubernetesConfig.ImageRepository, cc.KubernetesConfig.KubernetesVersion, viper.GetString(cmdcfg.Bootstrapper)); err != nil {
-				exit.WithError("RUNTIME_CACHE", "Failed to cache images", err)
+				exit.Error(reason.RuntimeCache, "Failed to cache images", err)
 			}
 		}
 	}
 
 	err = cr.Enable(disableOthers, forceSystemd())
 	if err != nil {
-		exit.WithError("RT_ENABLE", "Failed to enable container runtime", err)
+		exit.Error(reason.RtEnable, "Failed to enable container runtime", err)
 	}
 
 	return cr
@@ -287,7 +287,7 @@ func forceSystemd() bool {
 func setupKubeAdm(mAPI libmachine.API, cfg config.ClusterConfig, n config.Node, r command.Runner) bootstrapper.Bootstrapper {
 	bs, err := cluster.Bootstrapper(mAPI, viper.GetString(cmdcfg.Bootstrapper), cfg, r)
 	if err != nil {
-		exit.WithError("MK_BOOTSTRAPPER", "Failed to get bootstrapper", err)
+		exit.Error(reason.MkBootstrapper, "Failed to get bootstrapper", err)
 	}
 	for _, eo := range config.ExtraOptions {
 		out.Infof("{{.extra_option_component_name}}.{{.key}}={{.value}}", out.V{"extra_option_component_name": eo.Component, "key": eo.Key, "value": eo.Value})
@@ -300,7 +300,7 @@ func setupKubeAdm(mAPI libmachine.API, cfg config.ClusterConfig, n config.Node, 
 	}
 
 	if err := bs.SetupCerts(cfg.KubernetesConfig, n); err != nil {
-		exit.WithError("GUEST_CERT", "Failed to setup certs", err)
+		exit.Error(reason.GuestCert, "Failed to setup certs", err)
 	}
 
 	return bs

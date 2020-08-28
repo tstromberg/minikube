@@ -44,7 +44,7 @@ var generateDocs = &cobra.Command{
 
 		// generate docs
 		if err := generate.Docs(RootCmd, path); err != nil {
-			exit.WithError("MK_GENERATE_DOCS", "Unable to generate docs", err)
+			exit.Error(reason.MkGenerateDocs, "Unable to generate docs", err)
 		}
 		out.T(out.Documentation, "Docs have been saved at - {{.path}}", out.V{"path": path})
 	},

@@ -85,7 +85,7 @@ func init() {
 	deleteCmd.Flags().BoolVar(&purge, "purge", false, "Set this flag to delete the '.minikube' folder from your user directory.")
 
 	if err := viper.BindPFlags(deleteCmd.Flags()); err != nil {
-		exit.WithError("MK_BIND_FLAGS", "unable to bind flags", err)
+		exit.Error(reason.MkBindFlags, "unable to bind flags", err)
 	}
 	RootCmd.AddCommand(deleteCmd)
 }
@@ -193,7 +193,7 @@ func runDelete(cmd *cobra.Command, args []string) {
 func purgeMinikubeDirectory() {
 	glog.Infof("Purging the '.minikube' directory located at %s", localpath.MiniPath())
 	if err := os.RemoveAll(localpath.MiniPath()); err != nil {
-		exit.WithError("HOST_PURGE", "unable to delete minikube config folder", err)
+		exit.Error(reason.HostPurge, "unable to delete minikube config folder", err)
 	}
 	out.T(out.Deleted, "Successfully purged minikube directory located at - [{{.minikubeDirectory}}]", out.V{"minikubeDirectory": localpath.MiniPath()})
 }
@@ -460,7 +460,7 @@ func handleSingleDeletionError(err error) {
 			out.FatalT(deletionError.Error())
 		}
 	} else {
-		exit.WithError("GUEST_DELETION", "Could not process error from failed deletion", err)
+		exit.Error(reason.GuestDeletion, "Could not process error from failed deletion", err)
 	}
 }
 
@@ -473,7 +473,7 @@ func handleMultipleDeletionErrors(errors []error) {
 		if ok {
 			glog.Errorln(deletionError.Error())
 		} else {
-			exit.WithError("GUEST_DELETION", "Could not process errors from failed deletion", err)
+			exit.Error(reason.GuestDeletion, "Could not process errors from failed deletion", err)
 		}
 	}
 }
@@ -484,7 +484,7 @@ func deleteProfileDirectory(profile string) {
 		out.T(out.DeletingHost, `Removing {{.directory}} ...`, out.V{"directory": machineDir})
 		err := os.RemoveAll(machineDir)
 		if err != nil {
-			exit.WithError("GUEST_PROFILE_DELETION", "Unable to remove machine directory", err)
+			exit.Error(reason.GuestProfileDeletion, "Unable to remove machine directory", err)
 		}
 	}
 }

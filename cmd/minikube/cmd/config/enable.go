@@ -42,7 +42,7 @@ var addonsEnableCmd = &cobra.Command{
 		}
 		err := addons.SetAndSave(ClusterFlagValue(), addon, "true")
 		if err != nil {
-			exit.WithError("MK_ENABLE", "enable failed", err)
+			exit.Error(reason.MkEnable, "enable failed", err)
 		}
 		if addon == "dashboard" {
 			tipProfileArg := ""

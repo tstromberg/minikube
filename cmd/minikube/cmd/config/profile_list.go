@@ -79,7 +79,7 @@ var printProfilesTable = func() {
 	for _, p := range validProfiles {
 		cp, err := config.PrimaryControlPlane(p.Config)
 		if err != nil {
-			exit.WithError("GUEST_CP_CONFIG", "error getting primary control plane", err)
+			exit.Error(reason.GuestCpConfig, "error getting primary control plane", err)
 		}
 		p.Status, err = machine.Status(api, driver.MachineName(*p.Config, cp))
 		if err != nil {
@@ -120,7 +120,7 @@ var printProfilesJSON = func() {
 	for _, v := range validProfiles {
 		cp, err := config.PrimaryControlPlane(v.Config)
 		if err != nil {
-			exit.WithError("GUEST_CP_CONFIG", "error getting primary control plane", err)
+			exit.Error(reason.GuestCpConfig, "error getting primary control plane", err)
 		}
 		status, err := machine.Status(api, driver.MachineName(*v.Config, cp))
 		if err != nil {

@@ -80,7 +80,7 @@ var tunnelCmd = &cobra.Command{
 
 			port, err := oci.ForwardedPort(oci.Docker, cname, 22)
 			if err != nil {
-				exit.WithError("DRV_FORWARDED_PORT", "error getting ssh port", err)
+				exit.Error(reason.DrvForwardedPort, "error getting ssh port", err)
 			}
 			sshPort := strconv.Itoa(port)
 			sshKey := filepath.Join(localpath.MiniPath(), "machines", cname, "id_rsa")
@@ -88,7 +88,7 @@ var tunnelCmd = &cobra.Command{
 			kicSSHTunnel := kic.NewSSHTunnel(ctx, sshPort, sshKey, clientset.CoreV1())
 			err = kicSSHTunnel.Start()
 			if err != nil {
-				exit.WithError("SVC_TUNNEL_START", "error starting tunnel", err)
+				exit.Error(reason.SvcTunnelStart, "error starting tunnel", err)
 			}
 
 			return
@@ -96,7 +96,7 @@ var tunnelCmd = &cobra.Command{
 
 		done, err := manager.StartTunnel(ctx, cname, co.API, config.DefaultLoader, clientset.CoreV1())
 		if err != nil {
-			exit.WithError("SVC_TUNNEL_START", "error starting tunnel", err)
+			exit.Error(reason.SvcTunnelStart, "error starting tunnel", err)
 		}
 		<-done
 	},

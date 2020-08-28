@@ -56,17 +56,17 @@ var logsCmd = &cobra.Command{
 
 		bs, err := cluster.Bootstrapper(co.API, viper.GetString(cmdcfg.Bootstrapper), *co.Config, co.CP.Runner)
 		if err != nil {
-			exit.WithError("MK_BOOTSTRAPPER", "Error getting cluster bootstrapper", err)
+			exit.Error(reason.MkBootstrapper, "Error getting cluster bootstrapper", err)
 		}
 
 		cr, err := cruntime.New(cruntime.Config{Type: co.Config.KubernetesConfig.ContainerRuntime, Runner: co.CP.Runner})
 		if err != nil {
-			exit.WithError("MK_NEW_RUNTIME", "Unable to get runtime", err)
+			exit.Error(reason.MkNewRuntime, "Unable to get runtime", err)
 		}
 		if followLogs {
 			err := logs.Follow(cr, bs, *co.Config, co.CP.Runner)
 			if err != nil {
-				exit.WithError("MK_LOG_FOLLOW", "Follow", err)
+				exit.Error(reason.MkLogFollow, "Follow", err)
 			}
 			return
 		}

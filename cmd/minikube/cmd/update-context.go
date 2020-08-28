@@ -36,7 +36,7 @@ var updateContextCmd = &cobra.Command{
 
 		updated, err := kubeconfig.UpdateEndpoint(cname, co.CP.Hostname, co.CP.Port, kubeconfig.PathFromEnv())
 		if err != nil {
-			exit.WithError("HOST_KUBECONFIG_UPDATE", "update config", err)
+			exit.Error(reason.HostKubeconfigUpdate, "update config", err)
 		}
 		if updated {
 			out.T(out.Celebrate, `"{{.context}}" context has been updated to point to {{.hostname}}:{{.port}}`, out.V{"context": cname, "hostname": co.CP.Hostname, "port": co.CP.Port})

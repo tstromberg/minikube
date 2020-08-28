@@ -65,7 +65,7 @@ var serviceCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		t, err := template.New("serviceURL").Parse(serviceURLFormat)
 		if err != nil {
-			exit.WithError("MK_FORMAT_USAGE", "The value passed to --format is invalid", err)
+			exit.Error(reason.MkFormatUsage, "The value passed to --format is invalid", err)
 		}
 		serviceURLTemplate = t
 
@@ -88,7 +88,7 @@ var serviceCmd = &cobra.Command{
 				exit.WithCodeT(problem.ServiceNotFound, `Service '{{.service}}' was not found in '{{.namespace}}' namespace.
 You may select another namespace by using 'minikube service {{.service}} -n <namespace>'. Or list out all the services using 'minikube service list'`, out.V{"service": svc, "namespace": namespace})
 			}
-			exit.WithError("SVC_TIMEOUT", "Error opening service", err)
+			exit.Error(reason.SvcTimeout, "Error opening service", err)
 		}
 
 		if driver.NeedsPortForward(co.Config.Driver) {
@@ -122,7 +122,7 @@ func startKicServiceTunnel(svc, configName string) {
 
 	port, err := oci.ForwardedPort(oci.Docker, configName, 22)
 	if err != nil {
-		exit.WithError("OCI_PORT_FORWARD", "error getting ssh port", err)
+		exit.Error(reason.OciPortForward, "error getting ssh port", err)
 	}
 	sshPort := strconv.Itoa(port)
 	sshKey := filepath.Join(localpath.MiniPath(), "machines", configName, "id_rsa")
@@ -130,7 +130,7 @@ func startKicServiceTunnel(svc, configName string) {
 	serviceTunnel := kic.NewServiceTunnel(sshPort, sshKey, clientset.CoreV1())
 	urls, err := serviceTunnel.Start(svc, namespace)
 	if err != nil {
-		exit.WithError("SVC_TUNNEL_START", "error starting tunnel", err)
+		exit.Error(reason.SvcTunnelStart, "error starting tunnel", err)
 	}
 
 	// wait for tunnel to come up
@@ -146,7 +146,7 @@ func startKicServiceTunnel(svc, configName string) {
 
 	err = serviceTunnel.Stop()
 	if err != nil {
-		exit.WithError("SVC_TUNNEL_STOP", "error stopping tunnel", err)
+		exit.Error(reason.SvcTunnelStop, "error stopping tunnel", err)
 	}
 }
 
@@ -166,7 +166,7 @@ func openURLs(svc string, urls []string) {
 
 		out.T(out.Celebrate, "Opening service {{.namespace_name}}/{{.service_name}} in default browser...", out.V{"namespace_name": namespace, "service_name": svc})
 		if err := browser.OpenURL(u); err != nil {
-			exit.WithError("HOST_BROWSER", fmt.Sprintf("open url failed: %s", u), err)
+			exit.Error(reason.HostBrowser, fmt.Sprintf("open url failed: %s", u), err)
 		}
 	}
 }

@@ -140,7 +140,7 @@ var dockerEnvCmd = &cobra.Command{
 
 		if dockerUnset {
 			if err := dockerUnsetScript(DockerEnvConfig{EnvConfig: sh}, os.Stdout); err != nil {
-				exit.WithError("MK_DOCKER_SCRIPT", "Error generating unset output", err)
+				exit.Error(reason.MkDockerScript, "Error generating unset output", err)
 			}
 			return
 		}
@@ -189,7 +189,7 @@ var dockerEnvCmd = &cobra.Command{
 		if ec.Shell == "" {
 			ec.Shell, err = shell.Detect()
 			if err != nil {
-				exit.WithError("MK_SHELL_DETECT", "Error detecting shell", err)
+				exit.Error(reason.MkShellDetect, "Error detecting shell", err)
 			}
 		}
 
@@ -209,7 +209,7 @@ var dockerEnvCmd = &cobra.Command{
 		}
 
 		if err := dockerSetScript(ec, os.Stdout); err != nil {
-			exit.WithError("MK_DOCKER_SCRIPT", "Error generating set output", err)
+			exit.Error(reason.MkDockerScript, "Error generating set output", err)
 		}
 	},
 }

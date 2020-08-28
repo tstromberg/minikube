@@ -65,7 +65,7 @@ func Partial(name string, miniHome ...string) (libmachine.API, *config.ClusterCo
 	glog.Infof("Loading cluster: %s", name)
 	api, err := machine.NewAPIClient(miniHome...)
 	if err != nil {
-		exit.WithError("MK_MACHINE_API", "libmachine failed", err)
+		exit.Error(reason.MkMachineApi, "libmachine failed", err)
 	}
 	cc, err := config.Load(name, miniHome...)
 	if err != nil {
@@ -73,7 +73,7 @@ func Partial(name string, miniHome ...string) (libmachine.API, *config.ClusterCo
 			out.T(out.Shrug, `There is no local cluster named "{{.cluster}}"`, out.V{"cluster": name})
 			exitTip("start", name, problem.GuestNotFound)
 		}
-		exit.WithError("HOST_CONFIG_LOAD", "Error getting cluster config", err)
+		exit.Error(reason.HostConfigLoad, "Error getting cluster config", err)
 	}
 
 	return api, cc
@@ -85,13 +85,13 @@ func Running(name string) ClusterController {
 
 	cp, err := config.PrimaryControlPlane(cc)
 	if err != nil {
-		exit.WithError("GUEST_CP_CONFIG", "Unable to find control plane", err)
+		exit.Error(reason.GuestCpConfig, "Unable to find control plane", err)
 	}
 
 	machineName := driver.MachineName(*cc, cp)
 	hs, err := machine.Status(api, machineName)
 	if err != nil {
-		exit.WithError("GUEST_STATUS", "Unable to get machine status", err)
+		exit.Error(reason.GuestStatus, "Unable to get machine status", err)
 	}
 
 	if hs == state.None.String() {
@@ -111,17 +111,17 @@ func Running(name string) ClusterController {
 
 	host, err := machine.LoadHost(api, name)
 	if err != nil {
-		exit.WithError("GUEST_LOAD_HOST", "Unable to load host", err)
+		exit.Error(reason.GuestLoadHost, "Unable to load host", err)
 	}
 
 	cr, err := machine.CommandRunner(host)
 	if err != nil {
-		exit.WithError("MK_COMMAND_RUNNER", "Unable to get command runner", err)
+		exit.Error(reason.MkCommandRunner, "Unable to get command runner", err)
 	}
 
 	hostname, ip, port, err := driver.ControlPlaneEndpoint(cc, &cp, host.DriverName)
 	if err != nil {
-		exit.WithError("DRV_CP_ENDPOINT", "Unable to get forwarded endpoint", err)
+		exit.Error(reason.DrvCpEndpoint, "Unable to get forwarded endpoint", err)
 	}
 
 	return ClusterController{

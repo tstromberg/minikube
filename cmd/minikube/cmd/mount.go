@@ -67,7 +67,7 @@ var mountCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if isKill {
 			if err := killMountProcess(); err != nil {
-				exit.WithError("HOST_KILL_MOUNT_PROC", "Error killing mount process", err)
+				exit.Error(reason.HostKillMountProc, "Error killing mount process", err)
 			}
 			os.Exit(0)
 		}
@@ -87,7 +87,7 @@ var mountCmd = &cobra.Command{
 			if os.IsNotExist(err) {
 				exit.WithCodeT("HOST_PATH_MISSING", "Cannot find directory {{.path}} for mount", out.V{"path": hostPath})
 			} else {
-				exit.WithError("HOST_PATH_STAT", "stat failed", err)
+				exit.Error(reason.HostPathStat, "stat failed", err)
 			}
 		}
 		if len(vmPath) == 0 || !strings.HasPrefix(vmPath, "/") {
@@ -108,7 +108,7 @@ var mountCmd = &cobra.Command{
 		if mountIP == "" {
 			ip, err = cluster.HostIP(co.CP.Host)
 			if err != nil {
-				exit.WithError("IF_HOST_IP", "Error getting the host IP address to use from within the VM", err)
+				exit.Error(reason.IfHostIp, "Error getting the host IP address to use from within the VM", err)
 			}
 		} else {
 			ip = net.ParseIP(mountIP)
@@ -118,7 +118,7 @@ var mountCmd = &cobra.Command{
 		}
 		port, err := getPort()
 		if err != nil {
-			exit.WithError("IF_MOUNT_PORT", "Error finding port for mount", err)
+			exit.Error(reason.IfMountPort, "Error finding port for mount", err)
 		}
 
 		cfg := &cluster.MountConfig{
@@ -187,7 +187,7 @@ var mountCmd = &cobra.Command{
 
 		err = cluster.Mount(co.CP.Runner, ip.String(), vmPath, cfg)
 		if err != nil {
-			exit.WithError("GUEST_MOUNT", "mount failed", err)
+			exit.Error(reason.GuestMount, "mount failed", err)
 		}
 		out.T(out.SuccessType, "Successfully mounted {{.sourcePath}} to {{.destinationPath}}", out.V{"sourcePath": hostPath, "destinationPath": vmPath})
 		out.Ln("")
