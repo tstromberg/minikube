@@ -19,6 +19,7 @@ package problem
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 const issueBase = "https://github.com/kubernetes/minikube/issues"
@@ -71,6 +72,54 @@ func knownIssues() []Problem {
 	return ps
 }
 
+var baseCodes = map[string]int{
+	"MK":    ProgramError,
+	"RSRC":  ResourceError,
+	"HOST":  HostError,
+	"INET":  InternetError,
+	"DRV":   DriverError,
+	"PR":    ProviderError,
+	"IF":    LocalNetworkError,
+	"GUEST": GuestError,
+	"RT":    RuntimeError,
+	"K8S":   ControlPlaneError,
+	"SVC":   ServiceError,
+}
+
+var suffixCodes = map[string]int{
+	// Standard suffixes
+	"CONFLICT":    conflictOff,
+	"TIMEOUT":     timeoutOff,
+	"NOT_RUNNING": notRunningOff,
+	"USAGE":       usageOff,
+	"NOT_FOUND":   notFoundOff,
+	"UNSUPPORTED": unsupportedOff,
+	"PERMISSION":  permissionOff,
+	"CONFIG":      configOff,
+	"UNAVAILABLE": unavailableOff,
+
+	"DISABLED": unavailableOff,
+}
+
+// Make a general problem
+func makeProblem(id string, err error) *Problem {
+	exitcode := 0
+	parts := strings.Split(id, "_")
+
+	exitcode := baseCodes[parts[0]]
+	for k, v := range suffixCodes {
+		if strings.HasSuffix(id, k) {
+			exitcode += v
+			break
+		}
+	}
+
+	return &Problem{
+		ID:       id,
+		ExitCode: exitcode,
+	}
+}
+
 // FromError returns a known issue from an error on an OS
 func FromError(id string, err error, goos string) *Problem {
 	var genericMatch *Problem
@@ -94,5 +143,8 @@ func FromError(id string, err error, goos string) *Problem {
 		}
 	}
 
-	return genericMatch
+	if genericMatch != nil {
+		return genericMatch
+	}
+	return makeProblem(id, err)
 }

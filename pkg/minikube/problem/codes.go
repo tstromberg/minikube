@@ -37,6 +37,7 @@ const (
 	// Reserved UNIX exit codes
 	Failure     = 1 // Failure represents a general failure code
 	Interrupted = 2 // Ctrl-C (SIGINT)
+
 	// 3-7 are reserved for crazy legacy codes returned by "minikube status"
 
 	// How to assign new minikube exit codes:
@@ -44,18 +45,16 @@ const (
 	// * Each error source is indexed from 10 onward, in general, it follows the dependency stack
 	// * For each error source, we roughly try to follow sysexits(3) for backwards compatibility
 	//
-	// <source> + Error			0	(~EX_SOFTWARE)
-	// <source> + Conflict		1	(~EX_OSERR)
-	// <source> + Timeout		2	(~EX_INTERRUPTED)
-	// <source> + NotRunning    3
-	// <source> + Usage			4	(~EX_USAGE)
-	// <source> + NotFound		5	(~EX_DATAERR)
-	// <source> + Unsupported   6   (~EX_PROTOCOL)
-	// <source> + Permission	7	(~EX_NOPERM)
-	// <source> + Config		8	(~EX_CONFIG)
-	// <source> + Unavailable	9	(~EX_UNAVAILABLE)
-	//
-	// NOTE: "3" and "6" are available for your own use
+	errorOff       = 0 // (~EX_SOFTWARE)
+	conflictOff    = 1 // (~EX_OSERR)
+	timeoutOff     = 2 // (~EX_INTERRUPTED)
+	notRunningOff  = 3 // custom
+	usageOff       = 4 // (~EX_USAGE)
+	notFoundOff    = 5 // (~EX_DATAERR)
+	unsupportedOff = 6 // (~EX_PROTOCOL)
+	permissionOff  = 7 // (~EX_NOPERM)
+	configOff      = 8 // (~EX_CONFIG)
+	unavailableOff = 9 // (~EX_UNAVAILABLE)
 
 	// Error codes specific to the minikube program
 	ProgramError       = 10 // generic error
@@ -66,6 +65,7 @@ const (
 	ProgramConfig      = 18 // bad configuration specified
 
 	// Error codes specific to resource limits (exit code layout follows no rules)
+	ResourceError          = 20
 	InsufficientMemory     = 23
 	InsufficientStorage    = 26
 	InsufficientPermission = 27

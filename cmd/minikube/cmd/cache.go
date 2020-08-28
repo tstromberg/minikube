@@ -43,11 +43,11 @@ var addCacheCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Cache and load images into docker daemon
 		if err := machine.CacheAndLoadImages(args); err != nil {
-			exit.WithError("CACHE_LOAD_FAILED", "Failed to cache and load images", err)
+			exit.WithError("MK_CACHE_LOAD", "Failed to cache and load images", err)
 		}
 		// Add images to config file
 		if err := cmdConfig.AddToConfigMap(cacheImageConfigKey, args); err != nil {
-			exit.WithError("CONFIG_ADD_FAILED", "Failed to update config", err)
+			exit.WithError("MK_ADD_CONFIG", "Failed to update config", err)
 		}
 	},
 }
@@ -60,11 +60,11 @@ var deleteCacheCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Delete images from config file
 		if err := cmdConfig.DeleteFromConfigMap(cacheImageConfigKey, args); err != nil {
-			exit.WithError("CONFIG_DELETE_FAILED", "Failed to delete images from config", err)
+			exit.WithError("MK_DEL_CONFIG", "Failed to delete images from config", err)
 		}
 		// Delete images from cache/images directory
 		if err := image.DeleteFromCacheDir(args); err != nil {
-			exit.WithError("CACHE_DELETE_FAILED", "Failed to delete images", err)
+			exit.WithError("HOST_DEL_CACHE", "Failed to delete images", err)
 		}
 	},
 }
@@ -77,7 +77,7 @@ var reloadCacheCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := node.CacheAndLoadImagesInConfig()
 		if err != nil {
-			exit.WithError("CACHE_LOAD_FAILED", "Failed to reload cached images", err)
+			exit.WithError("GUEST_CACHE_LOAD", "Failed to reload cached images", err)
 		}
 	},
 }

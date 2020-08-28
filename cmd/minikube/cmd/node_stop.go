@@ -40,7 +40,7 @@ var nodeStopCmd = &cobra.Command{
 
 		n, _, err := node.Retrieve(*cc, name)
 		if err != nil {
-			exit.WithError(exit.ProgramError, "retrieving node", err)
+			exit.WithError("GUEST_NODE_RETRIEVE", "retrieving node", err)
 		}
 
 		machineName := driver.MachineName(*cc, *n)

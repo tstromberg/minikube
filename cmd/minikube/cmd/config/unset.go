@@ -33,7 +33,7 @@ var configUnsetCmd = &cobra.Command{
 		}
 		err := Unset(args[0])
 		if err != nil {
-			exit.WithError(exit.ProgramError, "unset failed", err)
+			exit.WithError("MK_CONFIG_UNSET", "unset failed", err)
 		}
 	},
 }

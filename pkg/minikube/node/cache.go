@@ -73,15 +73,15 @@ func handleDownloadOnly(cacheGroup, kicGroup *errgroup.Group, k8sVersion string)
 		return
 	}
 	if err := doCacheBinaries(k8sVersion); err != nil {
-		exit.WithError(exit.ProgramError, "Failed to cache binaries", err)
+		exit.WithError("INET_CACHE_BINARIES", "Failed to cache binaries", err)
 	}
 	if _, err := CacheKubectlBinary(k8sVersion); err != nil {
-		exit.WithError(exit.ProgramError, "Failed to cache kubectl", err)
+		exit.WithError("INET_CACHE_KUBECTL", "Failed to cache kubectl", err)
 	}
 	waitCacheRequiredImages(cacheGroup)
 	waitDownloadKicBaseImage(kicGroup)
 	if err := saveImagesToTarFromConfig(); err != nil {
-		exit.WithError(exit.ProgramError, "Failed to cache images to tar", err)
+		exit.WithError("INET_CACHE_TAR", "Failed to cache images to tar", err)
 	}
 	out.T(out.Check, "Download complete!")
 	os.Exit(0)

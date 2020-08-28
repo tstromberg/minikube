@@ -86,33 +86,33 @@ var dashboardCmd = &cobra.Command{
 		checkSVC := func() error { return service.CheckService(cname, ns, svc) }
 		// for slow machines or parallels in CI to avoid #7503
 		if err = retry.Expo(checkSVC, 100*time.Microsecond, time.Minute*10); err != nil {
-			exit.WithCodeT(exit.ServiceTimeout, "dashboard service is not running: {{.error}}", out.V{"error": err})
+			exit.WithCodeT("SVC_CHECK_TIMEOUT", "dashboard service is not running: {{.error}}", out.V{"error": err})
 		}
 
 		out.ErrT(out.Launch, "Launching proxy ...")
 		p, hostPort, err := kubectlProxy(kubectlVersion, cname)
 		if err != nil {
-			exit.WithError(exit.ProgramError, "kubectl proxy", err)
+			exit.WithError("HOST_KUBECTL_PROXY", "kubectl proxy", err)
 		}
 		url := dashboardURL(hostPort, ns, svc)
 
 		out.ErrT(out.Verifying, "Verifying proxy health ...")
 		chkURL := func() error { return checkURL(url) }
 		if err = retry.Expo(chkURL, 100*time.Microsecond, 10*time.Minute); err != nil {
-			exit.WithCodeT(exit.ServiceUnavailable, "{{.url}} is not accessible: {{.error}}", out.V{"url": url, "error": err})
+			exit.WithCodeT("SVC_URL_TIMEOUT", "{{.url}} is not accessible: {{.error}}", out.V{"url": url, "error": err})
 		}
 
 		//check if current user is root
 		user, err := user.Current()
 		if err != nil {
-			exit.WithError(exit.ProgramError, "Unable to get current user", err)
+			exit.WithError("HOST_CURRENT_USER", "Unable to get current user", err)
 		}
 		if dashboardURLMode || user.Uid == "0" {
 			out.Ln(url)
 		} else {
 			out.T(out.Celebrate, "Opening {{.url}} in your default browser...", out.V{"url": url})
 			if err = browser.OpenURL(url); err != nil {
-				exit.WithCodeT(exit.HostError, "failed to open browser: {{.error}}", out.V{"error": err})
+				exit.WithCodeT("HOST_BROWSER_FAILED", "failed to open browser: {{.error}}", out.V{"error": err})
 			}
 		}
 
