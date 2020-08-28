@@ -28,6 +28,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/exit"
 	"k8s.io/minikube/pkg/minikube/machine"
 	"k8s.io/minikube/pkg/minikube/out"
+	"k8s.io/minikube/pkg/minikube/problem"
 
 	"github.com/golang/glog"
 	"github.com/olekukonko/tablewriter"
@@ -50,7 +51,7 @@ var profileListCmd = &cobra.Command{
 		case "table":
 			printProfilesTable()
 		default:
-			exit.WithCodeT(exit.ProgramUsage, fmt.Sprintf("invalid output format: %s. Valid values: 'table', 'json'", output))
+			exit.WithCodeT(problem.ProgramUsage, fmt.Sprintf("invalid output format: %s. Valid values: 'table', 'json'", output))
 		}
 
 	},
@@ -154,7 +155,7 @@ var printProfilesJSON = func() {
 		body["error"] = err
 		jsonString, _ := json.Marshal(body)
 		out.String(string(jsonString))
-		os.Exit(exit.Failure)
+		os.Exit(problem.GuestError)
 	}
 }
 

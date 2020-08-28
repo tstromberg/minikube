@@ -21,19 +21,20 @@ import (
 	"strings"
 
 	"k8s.io/minikube/pkg/minikube/out/register"
+	"k8s.io/minikube/pkg/minikube/problem"
 	"k8s.io/minikube/pkg/minikube/translate"
 )
 
 // Problem displays a problem
-func Problem(p Problem, format string, a ...V) {
+func Problem(p problem.Problem, format string, a ...V) {
 	if JSON {
-		p.displayJSON(format, a...)
+		displayJSON(p, format, a...)
 	} else {
-		p.displayText(format, a...)
+		displayText(p, format, a...)
 	}
 }
 
-func displayText(p Problem, format string, a ...V) {
+func displayText(p problem.Problem, format string, a ...V) {
 	Ln("")
 	ErrT(FailureType, format, a...)
 	ErrT(Tip, "Suggestion: {{.advice}}", V{"advice": translate.T(p.Advice)})
@@ -41,7 +42,7 @@ func displayText(p Problem, format string, a ...V) {
 		ErrT(Documentation, "Documentation: {{.url}}", V{"url": p.URL})
 	}
 
-	issueURLs := p.issueURLs()
+	issueURLs := p.IssueURLs()
 	if len(issueURLs) > 0 {
 		ErrT(Issues, "Related issues:")
 		for _, i := range issueURLs {
@@ -56,12 +57,12 @@ func displayText(p Problem, format string, a ...V) {
 	}
 }
 
-func displayJSON(p Problem, format string, a ...V) {
+func displayJSON(p problem.Problem, format string, a ...V) {
 	msg := ApplyTemplateFormatting(FailureType, false, format, a...)
 	register.PrintErrorExitCode(strings.TrimSpace(msg), p.ExitCode, map[string]string{
 		"name":   p.ID,
 		"advice": p.Advice,
 		"url":    p.URL,
-		"issues": strings.Join(p.issueURLs(), ","),
+		"issues": strings.Join(p.IssueURLs(), ","),
 	})
 }

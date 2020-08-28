@@ -33,6 +33,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/mustload"
 	"k8s.io/minikube/pkg/minikube/out"
 	"k8s.io/minikube/pkg/minikube/out/register"
+	"k8s.io/minikube/pkg/minikube/problem"
 )
 
 var (
@@ -56,7 +57,7 @@ func runPause(cmd *cobra.Command, args []string) {
 	if allNamespaces {
 		namespaces = nil //all
 	} else if len(namespaces) == 0 {
-		exit.WithCodeT(exit.ProgramUsage, "Use -A to specify all namespaces")
+		exit.WithCodeT(problem.ProgramUsage, "Use -A to specify all namespaces")
 	}
 
 	ids := []string{}

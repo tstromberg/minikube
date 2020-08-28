@@ -44,6 +44,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/localpath"
 	"k8s.io/minikube/pkg/minikube/out"
 	"k8s.io/minikube/pkg/minikube/out/register"
+	"k8s.io/minikube/pkg/minikube/problem"
 	"k8s.io/minikube/pkg/minikube/proxy"
 	"k8s.io/minikube/pkg/minikube/registry"
 	"k8s.io/minikube/pkg/minikube/vmpath"
@@ -222,7 +223,7 @@ func postStartValidations(h *host.Host, drvName string) {
 		glog.Warningf("error getting percentage of /var that is free: %v", err)
 	}
 	if percentageFull >= 99 {
-		exit.WithProblem(exit.DockerInsufficientStorage, `Docker is out of disk space! ({{.p}}% of capacity)`, out.V{"p": percentageFull})
+		exit.WithProblem(problem.DockerInsufficientStorage, `Docker is out of disk space! ({{.p}}% of capacity)`, out.V{"p": percentageFull})
 	}
 
 	if percentageFull >= 85 {

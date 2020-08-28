@@ -29,6 +29,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/exit"
 	"k8s.io/minikube/pkg/minikube/mustload"
 	"k8s.io/minikube/pkg/minikube/out"
+	"k8s.io/minikube/pkg/minikube/problem"
 )
 
 const (
@@ -58,7 +59,7 @@ func enableAddon(cfg *config.ClusterConfig) error {
 	ctx := context.Background()
 	creds, err := google.FindDefaultCredentials(ctx)
 	if err != nil {
-		exit.WithCodeT(exit.ProgramNotFound, "Could not find any GCP credentials. Either run `gcloud auth login` or set the GOOGLE_APPLICATION_CREDENTIALS environment variable to the path of your credentials file.")
+		exit.WithCodeT(problem.ProgramNotFound, "Could not find any GCP credentials. Either run `gcloud auth login` or set the GOOGLE_APPLICATION_CREDENTIALS environment variable to the path of your credentials file.")
 	}
 
 	f := assets.NewMemoryAssetTarget(creds.JSON, credentialsPath, "0444")

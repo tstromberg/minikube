@@ -103,7 +103,6 @@ var suffixCodes = map[string]int{
 
 // Make a general problem
 func makeProblem(id string, err error) *Problem {
-	exitcode := 0
 	parts := strings.Split(id, "_")
 
 	exitcode := baseCodes[parts[0]]

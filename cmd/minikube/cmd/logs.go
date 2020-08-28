@@ -28,6 +28,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/logs"
 	"k8s.io/minikube/pkg/minikube/mustload"
 	"k8s.io/minikube/pkg/minikube/out"
+	"k8s.io/minikube/pkg/minikube/problem"
 )
 
 const (
@@ -79,7 +80,7 @@ var logsCmd = &cobra.Command{
 			out.Ln("")
 			// Avoid exit.WithError, since it outputs the issue URL
 			out.WarningT("{{.error}}", out.V{"error": err})
-			os.Exit(exit.ServiceError)
+			os.Exit(problem.ServiceError)
 		}
 	},
 }

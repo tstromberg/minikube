@@ -21,6 +21,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/exit"
 	"k8s.io/minikube/pkg/minikube/notify"
 	"k8s.io/minikube/pkg/minikube/out"
+	"k8s.io/minikube/pkg/minikube/problem"
 	"k8s.io/minikube/pkg/version"
 )
 
@@ -36,7 +37,7 @@ var updateCheckCmd = &cobra.Command{
 		}
 
 		if len(r) < 1 {
-			exit.WithCodeT("INET_EMPTY_VERSIONS", "Update server returned an empty list")
+			exit.WithCodeT(problem.InternetConfig, "Update server returned an empty list")
 		}
 
 		out.Ln("CurrentVersion: %s", version.GetVersion())

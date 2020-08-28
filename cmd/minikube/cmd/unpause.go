@@ -33,6 +33,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/mustload"
 	"k8s.io/minikube/pkg/minikube/out"
 	"k8s.io/minikube/pkg/minikube/out/register"
+	"k8s.io/minikube/pkg/minikube/problem"
 )
 
 // unpauseCmd represents the docker-pause command
@@ -51,7 +52,7 @@ var unpauseCmd = &cobra.Command{
 			namespaces = nil //all
 		} else {
 			if len(namespaces) == 0 {
-				exit.WithCodeT(exit.ProgramUsage, "Use -A to specify all namespaces")
+				exit.WithCodeT(problem.ProgramUsage, "Use -A to specify all namespaces")
 			}
 		}
 

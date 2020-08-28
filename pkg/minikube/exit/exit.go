@@ -24,11 +24,12 @@ import (
 
 	"github.com/golang/glog"
 	"k8s.io/minikube/pkg/minikube/out"
+	"k8s.io/minikube/pkg/minikube/problem"
 )
 
 // UsageT outputs a templated usage error and exits with error code 64
 func UsageT(format string, a ...out.V) {
-	exitcode := ProgramUsage
+	exitcode := problem.ProgramUsage
 	out.ErrWithExitCode(out.Usage, format, exitcode, a...)
 	os.Exit(exitcode)
 }
@@ -42,23 +43,18 @@ func WithCodeT(code int, format string, a ...out.V) {
 // WithError outputs an error and exits.
 func WithError(id string, msg string, err error) {
 	glog.Infof("WithError(%s, %v) called from:\n%s", msg, err, debug.Stack())
-	problem := problemFromError(id, err, runtime.GOOS)
-	if problem != nil {
-		WithProblem(*problem, "Error: {{.err}}", out.V{"err": err})
-	} else {
-		out.DisplayError(msg, err)
-		os.Exit(code)
-	}
+	problem := problem.FromError(id, err, runtime.GOOS)
+	WithProblem(*problem, "Error: {{.err}}", out.V{"err": err})
 }
 
 // WithProblem outputs an error and exits.
-func WithProblem(problem Problem, format string, a ...out.V) {
-	glog.Infof("WithProblem(%+v, %s, %s) called from:\n%s", problem, format, a, debug.Stack())
+func WithProblem(p problem.Problem, format string, a ...out.V) {
+	glog.Infof("WithProblem(%+v, %s, %s) called from:\n%s", p, format, a, debug.Stack())
 
-	if problem.ExitCode == 0 {
-		problem.ExitCode = ProgramError
+	if p.ExitCode == 0 {
+		p.ExitCode = problem.ProgramError
 	}
 
-	problem.Display(format, a...)
-	os.Exit(problem.ExitCode)
+	out.Problem(p, format, a...)
+	os.Exit(p.ExitCode)
 }

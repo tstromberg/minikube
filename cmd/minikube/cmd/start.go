@@ -57,6 +57,7 @@ import (
 	"k8s.io/minikube/pkg/minikube/notify"
 	"k8s.io/minikube/pkg/minikube/out"
 	"k8s.io/minikube/pkg/minikube/out/register"
+	"k8s.io/minikube/pkg/minikube/problem"
 
 	"k8s.io/minikube/pkg/minikube/registry"
 	"k8s.io/minikube/pkg/minikube/translate"
@@ -156,7 +157,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 	existing, err := config.Load(ClusterFlagValue())
 	if err != nil && !config.IsNotExist(err) {
-		exit.WithCodeT(exit.ProgramConfig, "Unable to load config: {{.error}}", out.V{"error": err})
+		exit.WithCodeT(problem.ProgramConfig, "Unable to load config: {{.error}}", out.V{"error": err})
 	}
 
 	if existing != nil {
@@ -629,7 +630,7 @@ func validateSpecifiedDriver(existing *config.ClusterConfig) {
 2) Start the existing "{{.name}}" cluster using: '{{.command}} --driver={{.old}}'
 `, out.V{"command": mustload.ExampleCmd(existing.Name, "start"), "delcommand": mustload.ExampleCmd(existing.Name, "delete"), "old": old, "name": existing.Name})
 
-	exit.WithCodeT(exit.GuestConflict, "Exiting.")
+	exit.WithCodeT(problem.GuestConflict, "Exiting.")
 }
 
 // validateDriver validates that the selected driver appears sane, exits if not
@@ -953,7 +954,7 @@ func validateFlags(cmd *cobra.Command, drvName string) {
 	if cmd.Flags().Changed(humanReadableDiskSize) {
 		diskSizeMB, err := util.CalculateSizeInMB(viper.GetString(humanReadableDiskSize))
 		if err != nil {
-			exitIfNotForced(exit.ProgramUsage, "Validation unable to parse disk size '{{.diskSize}}': {{.error}}", out.V{"diskSize": viper.GetString(humanReadableDiskSize), "error": err})
+			exitIfNotForced(problem.ProgramUsage, "Validation unable to parse disk size '{{.diskSize}}': {{.error}}", out.V{"diskSize": viper.GetString(humanReadableDiskSize), "error": err})
 		}
 
 		if diskSizeMB < minimumDiskSize {
@@ -975,7 +976,7 @@ func validateFlags(cmd *cobra.Command, drvName string) {
 		}
 		req, err := util.CalculateSizeInMB(viper.GetString(memory))
 		if err != nil {
-			exitIfNotForced(exit.ProgramConfig, "Unable to parse memory '{{.memory}}': {{.error}}", out.V{"memory": viper.GetString(memory), "error": err})
+			exitIfNotForced(problem.ProgramConfig, "Unable to parse memory '{{.memory}}': {{.error}}", out.V{"memory": viper.GetString(memory), "error": err})
 		}
 		validateMemorySize(req, drvName)
 	}
@@ -1018,7 +1019,7 @@ func validateFlags(cmd *cobra.Command, drvName string) {
 		version, _ := util.ParseKubernetesVersion(getKubernetesVersion(nil))
 		if version.GTE(semver.MustParse("1.18.0-beta.1")) {
 			if _, err := exec.LookPath("conntrack"); err != nil {
-				exit.WithCodeT(exit.GuestConfig, "Sorry, Kubernetes {{.k8sVersion}} requires conntrack to be installed in root's path", out.V{"k8sVersion": version.String()})
+				exit.WithCodeT(problem.GuestConfig, "Sorry, Kubernetes {{.k8sVersion}} requires conntrack to be installed in root's path", out.V{"k8sVersion": version.String()})
 			}
 		}
 	}
@@ -1031,7 +1032,7 @@ func validateFlags(cmd *cobra.Command, drvName string) {
 			out.V{"invalid_extra_opts": invalidOpts},
 		)
 		exit.WithCodeT(
-			exit.ProgramConfig,
+			problem.ProgramConfig,
 			"Valid components are: {{.valid_extra_opts}}",
 			out.V{"valid_extra_opts": bsutil.KubeadmExtraConfigOpts},
 		)
@@ -1144,11 +1145,11 @@ func validateKubernetesVersion(old *config.ClusterConfig) {
 
 	oldestVersion, err := semver.Make(strings.TrimPrefix(constants.OldestKubernetesVersion, version.VersionPrefix))
 	if err != nil {
-		exit.WithCodeT(exit.ProgramError, "Unable to parse oldest Kubernetes version from constants: {{.error}}", out.V{"error": err})
+		exit.WithCodeT(problem.ProgramError, "Unable to parse oldest Kubernetes version from constants: {{.error}}", out.V{"error": err})
 	}
 	defaultVersion, err := semver.Make(strings.TrimPrefix(constants.DefaultKubernetesVersion, version.VersionPrefix))
 	if err != nil {
-		exit.WithCodeT(exit.ProgramError, "Unable to parse default Kubernetes version from constants: {{.error}}", out.V{"error": err})
+		exit.WithCodeT(problem.ProgramError, "Unable to parse default Kubernetes version from constants: {{.error}}", out.V{"error": err})
 	}
 
 	if nvs.LT(oldestVersion) {
@@ -1156,7 +1157,7 @@ func validateKubernetesVersion(old *config.ClusterConfig) {
 		if !viper.GetBool(force) {
 			out.WarningT("You can force an unsupported Kubernetes version via the --force flag")
 		}
-		exitIfNotForced(exit.ServiceUnsupported, "Kubernetes {{.version}} is not supported by this release of minikube", out.V{"version": nvs})
+		exitIfNotForced(problem.ServiceUnsupported, "Kubernetes {{.version}} is not supported by this release of minikube", out.V{"version": nvs})
 	}
 
 	if old == nil || old.KubernetesConfig.KubernetesVersion == "" {
@@ -1176,7 +1177,7 @@ func validateKubernetesVersion(old *config.ClusterConfig) {
 
 		suggestedName := old.Name + "2"
 		out.T(out.Conflict, "You have selected Kubernetes {{.new}}, but the existing cluster is running Kubernetes {{.old}}", out.V{"new": nvs, "old": ovs, "profile": profileArg})
-		exit.WithCodeT(exit.ServiceConflict, `Non-destructive downgrades are not supported, but you can proceed with one of the following options:
+		exit.WithCodeT(problem.ServiceConflict, `Non-destructive downgrades are not supported, but you can proceed with one of the following options:
 
   1) Recreate the cluster with Kubernetes {{.new}}, by running:
 
@@ -1214,7 +1215,7 @@ func getKubernetesVersion(old *config.ClusterConfig) string {
 
 	nvs, err := semver.Make(strings.TrimPrefix(paramVersion, version.VersionPrefix))
 	if err != nil {
-		exit.WithCodeT(exit.ProgramUsage, `Unable to parse "{{.kubernetes_version}}": {{.error}}`, out.V{"kubernetes_version": paramVersion, "error": err})
+		exit.WithCodeT(problem.ProgramUsage, `Unable to parse "{{.kubernetes_version}}": {{.error}}`, out.V{"kubernetes_version": paramVersion, "error": err})
 	}
 
 	return version.VersionPrefix + nvs.String()

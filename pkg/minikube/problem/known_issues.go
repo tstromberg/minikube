@@ -33,6 +33,28 @@ var ProgramIssues = []Problem{
 	},
 }
 
+var DockerInsufficientMemory = Problem{
+	ID: "RSRC_DOCKER_MEM",
+	Advice: `Your system has {{.system_limit}}MB memory but Docker has only {{.container_limit}}MB. For a better performance increase to at least 3GB.
+
+	Docker for Desktop  > Settings > Resources > Memory`,
+
+	ExitCode: InsufficientMemory,
+}
+
+var DockerInsufficientStorage = Problem{
+	ID:     "RSRC_DOCKER_STORAGE",
+	Regexp: re(`.*docker.*No space left on device.*`),
+	Advice: `Try at least one of the following to free up space on the device:
+
+	1. Run "docker system prune" to remove unused docker data
+	2. Increase the amount of memory allocated to Docker for Desktop via 
+		Docker icon > Preferences > Resources > Disk Image Size
+	3. Run "minikube ssh -- docker system prune" if using the docker container runtime`,
+	Issues:   []int{9024},
+	ExitCode: InsufficientStorage,
+}
+
 // ResourceIssues are failures due to resource constraints
 var ResourceIssues = []Problem{
 	{
@@ -58,32 +80,14 @@ var ResourceIssues = []Problem{
 		ExitCode: InsufficientMemory,
 	},
 	{
-		ID:     "RSRC_DOCKER_STORAGE",
-		Regexp: re(`.*docker.*No space left on device.*`),
-		Advice: `Try at least one of the following to free up space on the device:
-	
-		1. Run "docker system prune" to remove unused docker data
-		2. Increase the amount of memory allocated to Docker for Desktop via 
-			Docker icon > Preferences > Resources > Disk Image Size
-		3. Run "minikube ssh -- docker system prune" if using the docker container runtime`,
-		Issues:   []int{9024},
-		ExitCode: InsufficientStorage,
-	},
-	{
-		ID: "RSRC_DOCKER_MEM",
-		Advice: `Your system has {{.system_limit}}MB memory but Docker has only {{.container_limit}}MB. For a better performance increase to at least 3GB.
-	
-		Docker for Desktop  > Settings > Resources > Memory`,
-
-		ExitCode: InsufficientMemory,
-	},
-	{
 		ID: "RSRC_DOCKER_CORES",
 		Advice: `Your Docker for Desktop environment has less than 2 CPUs configured. Increase CPUs for Docker Desktop. 
 		
 		Docker icon > Settings > Resources > CPUs`,
 		ExitCode: InsufficientCores,
 	},
+	DockerInsufficientStorage,
+	DockerInsufficientMemory,
 }
 
 // HostIssues are related to the host operating system or BIOS
