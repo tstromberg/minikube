@@ -40,31 +40,25 @@ func WithCodeT(code int, format string, a ...out.V) {
 }
 
 // WithError outputs an error and exits.
-func WithError(code int, msg string, err error) {
+func WithError(id string, msg string, err error) {
 	glog.Infof("WithError(%s, %v) called from:\n%s", msg, err, debug.Stack())
-	ki := KnownIssueFromError(err, runtime.GOOS)
-	if ki != nil {
-		WithKnownIssue(*ki, "Error: {{.err}}", out.V{"err": err})
+	problem := problemFromError(id, err, runtime.GOOS)
+	if problem != nil {
+		WithProblem(*problem, "Error: {{.err}}", out.V{"err": err})
 	} else {
 		out.DisplayError(msg, err)
 		os.Exit(code)
 	}
 }
 
-// WithKnownIssue outputs an error and exits.
-func WithKnownIssue(ki KnownIssue, format string, a ...out.V) {
-	glog.Infof("WithKnownIssue(%+v, %s, %s) called from:\n%s", ki, format, a, debug.Stack())
+// WithProblem outputs an error and exits.
+func WithProblem(problem Problem, format string, a ...out.V) {
+	glog.Infof("WithProblem(%+v, %s, %s) called from:\n%s", problem, format, a, debug.Stack())
 
-	if ki.ExitCode == 0 {
-		ki.ExitCode = ProgramError
+	if problem.ExitCode == 0 {
+		problem.ExitCode = ProgramError
 	}
 
-	if out.JSON {
-		ki.DisplayJSON(format, a...)
-	} else {
-		out.ErrT(out.FailureType, format, a...)
-		ki.Display()
-	}
-
-	os.Exit(ki.ExitCode)
+	problem.Display(format, a...)
+	os.Exit(problem.ExitCode)
 }

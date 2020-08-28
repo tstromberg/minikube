@@ -933,6 +933,8 @@ func validateCPUCount(drvName string) {
 		}
 		if si.CPUs < 2 {
 			if drvName == oci.Docker {
+				if 
+				exit.DockerInsufficientCores.Display()
 				out.T(out.Conflict, `Your Docker Desktop has less than 2 CPUs. Increase CPUs for Docker Desktop. 
 	
 	Docker icon > Settings > Resources > CPUs

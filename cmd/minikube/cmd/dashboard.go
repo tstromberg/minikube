@@ -76,7 +76,7 @@ var dashboardCmd = &cobra.Command{
 			// Enable the dashboard add-on
 			err = addons.SetAndSave(cname, "dashboard", "true")
 			if err != nil {
-				exit.WithError(exit.ProgramError, "Unable to enable dashboard", err)
+				exit.WithError("ADDON_ENABLE_FAILED", "Unable to enable dashboard", err)
 			}
 		}
 
