@@ -180,6 +180,16 @@ var hostIssues = []match{
 		},
 		Regexp: re(`Container.*is not running.*chown docker:docker`),
 	},
+	{
+		Kind: Kind{
+			ID:       "HOST_PIDS_CGROUP",
+			ExitCode: ExHostUnsupported,
+			Advice:   "Ensure that the required 'pids' cgroup is enabled on your host: grep pids /proc/cgroups",
+			Issues:   []int{6411},
+		},
+		Regexp: re(`failed to find subsystem mount for required subsystem: pids`),
+		GOOS:   []string{"linux"},
+	},
 }
 
 // providerIssues are failures relating to a driver provider
@@ -225,6 +235,28 @@ var providerIssues = []match{
 			Issues:   []int{8163},
 		},
 		Regexp: re(`executing "" at <index (index .NetworkSettings.Ports "22/tcp") 0>`),
+	},
+	{
+		Kind: Kind{
+			ID:       "PR_DOCKER_MOUNTS_EOF",
+			ExitCode: ExProviderError,
+			Advice:   "Reset Docker to factory defaults",
+			Issues:   []int{8832},
+			URL:      "https://docs.docker.com/docker-for-mac/#reset",
+		},
+		GOOS:   []string{"darwin"},
+		Regexp: re(`docker:.*Mounts denied: EOF`),
+	},
+	{
+		Kind: Kind{
+			ID:       "PR_DOCKER_MOUNTS_EOF",
+			ExitCode: ExProviderError,
+			Advice:   "Reset Docker to factory defaults",
+			Issues:   []int{8832},
+			URL:      "https://docs.docker.com/docker-for-windows/#reset",
+		},
+		GOOS:   []string{"windows"},
+		Regexp: re(`docker:.*Mounts denied: EOF`),
 	},
 
 	// Hyperkit hypervisor
@@ -286,6 +318,16 @@ var providerIssues = []match{
 		Kind: Kind{
 			ID:       "PR_HYPERV_NEEDS_ESC",
 			ExitCode: ExProviderPermission,
+			Advice:   "Right-click the PowerShell icon and select Run as Administrator to open PowerShell in elevated mode.",
+			Issues:   []int{7347},
+		},
+		Regexp: re(`The requested operation requires elevation.`),
+		GOOS:   []string{"windows"},
+	},
+	{
+		Kind: Kind{
+			ID:       "PR_HYPERV_NOT_RUNNING",
+			ExitCode: ExProviderNotRunning,
 			Advice:   "Right-click the PowerShell icon and select Run as Administrator to open PowerShell in elevated mode.",
 			Issues:   []int{7347},
 		},
@@ -846,6 +888,15 @@ var guestIssues = []match{
 		Regexp: re(`The process cannot access the file because it is being used by another process`),
 		GOOS:   []string{"windows"},
 	},
+	{
+		Kind: Kind{
+			ID:       "GUEST_NOT_FOUND",
+			ExitCode: ExGuestNotFound,
+			Advice:   "minikube is missing files relating to your virtual machine. This can be fixed by running 'minikube delete'",
+			Issues:   []int{9130},
+		},
+		Regexp: re(`config.json: The system cannot find the file specified`),
+	},
 }
 
 // runtimeIssues are container runtime issues (containerd, docker, etc)
@@ -854,7 +905,7 @@ var runtimeIssues = []match{
 		Kind: Kind{
 			ID:       "RT_DOCKER_RESTART",
 			ExitCode: ExRuntimeError,
-			Advice:   "Remove the incompatible --docker-opt flag if one was provided",
+			Advice:   "Remove the invalid --docker-opt or --inecure-registry flag if one was provided",
 			Issues:   []int{7070},
 		},
 		Regexp: re(`systemctl -f restart docker`),
