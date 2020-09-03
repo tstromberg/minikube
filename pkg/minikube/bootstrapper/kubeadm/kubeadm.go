@@ -326,6 +326,19 @@ func (k *Bootstrapper) StartCluster(cfg config.ClusterConfig) error {
 		glog.Infof("StartCluster complete in %s", time.Since(start))
 	}()
 
+	cp, err := config.PrimaryControlPlane(&cfg)
+	if err != nil {
+		return errors.Wrap(err, "primary control plane")
+	}
+
+	if cp.Name == "" {
+		return fmt.Errorf("controlPlane configuration is corrupt: no name: %+v", cp)
+	}
+
+	if cp.IP == "" {
+		return fmt.Errorf("ontrolPlane configuration is corrupt: no IP: %+v", cp)
+	}
+
 	// Before we start, ensure that no paused components are lurking around
 	if err := k.unpause(cfg); err != nil {
 		glog.Warningf("unpause failed: %v", err)
@@ -350,7 +363,7 @@ func (k *Bootstrapper) StartCluster(cfg config.ClusterConfig) error {
 		return errors.Wrap(err, "cp")
 	}
 
-	err := k.init(cfg)
+	err = k.init(cfg)
 	if err == nil {
 		return nil
 	}
@@ -401,6 +414,7 @@ func (k *Bootstrapper) WaitForNode(cfg config.ClusterConfig, n config.Node, time
 	if err != nil {
 		return errors.Wrap(err, "get primary control plane")
 	}
+
 	hostname, _, port, err := driver.ControlPlaneEndpoint(&cfg, &cp, cfg.Driver)
 	if err != nil {
 		return errors.Wrap(err, "get control plane endpoint")

@@ -201,6 +201,15 @@ var hostIssues = []match{
 		Regexp: re(`failed to find subsystem mount for required subsystem: pids`),
 		GOOS:   []string{"linux"},
 	},
+	{
+		Kind: Kind{
+			ID:       "HOST_HOME_PERMISSION",
+			ExitCode: ExGuestPermission,
+			Advice:   "Your user lacks permissions to the minikube profile directory. Run: 'sudo chown -R $USER $HOME/.minikube; chmod -R u+wrx $HOME/.minikube' to fix",
+			Issues:   []int{9165},
+		},
+		Regexp: re(`/.minikube/.*: permission denied`),
+	},
 }
 
 // providerIssues are failures relating to a driver provider
@@ -337,12 +346,24 @@ var providerIssues = []match{
 	},
 	{
 		Kind: Kind{
-			ID:       "PR_HYPERV_NOT_RUNNING",
-			ExitCode: ExProviderNotRunning,
-			Advice:   "Right-click the PowerShell icon and select Run as Administrator to open PowerShell in elevated mode.",
+			ID:       "PR_POWERSHELL_CONSTRAINED",
+			ExitCode: ExProviderPermission,
+			Advice:   "PowerShell is running in constrained mode, which is incompatible with Hyper-V scripting.",
 			Issues:   []int{7347},
+			URL:      "https://devblogs.microsoft.com/powershell/powershell-constrained-language-mode/",
 		},
-		Regexp: re(`The requested operation requires elevation.`),
+		Regexp: re(`MethodInvocationNotSupportedInConstrainedLanguage`),
+		GOOS:   []string{"windows"},
+	},
+	{
+		Kind: Kind{
+			ID:       "PR_HYPERV_MODULE_NOT_INSTALLED",
+			ExitCode: ExProviderNotFound,
+			Advice:   "Run: 'Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-Tools-All'",
+			Issues:   []int{7347},
+			URL:      "https://www.altaro.com/hyper-v/install-hyper-v-powershell-module/",
+		},
+		Regexp: re(`Hyper-V PowerShell Module is not available`),
 		GOOS:   []string{"windows"},
 	},
 
@@ -903,10 +924,28 @@ var guestIssues = []match{
 		Kind: Kind{
 			ID:       "GUEST_NOT_FOUND",
 			ExitCode: ExGuestNotFound,
-			Advice:   "minikube is missing files relating to your virtual machine. This can be fixed by running 'minikube delete'",
+			Advice:   "minikube is missing files relating to your guest environment. This can be fixed by running 'minikube delete'",
 			Issues:   []int{9130},
 		},
 		Regexp: re(`config.json: The system cannot find the file specified`),
+	},
+	{
+		Kind: Kind{
+			ID:       "GUEST_SSH_CERT_NOT_FOUND",
+			ExitCode: ExGuestNotFound,
+			Advice:   "minikube is missing files relating to your guest environment. This can be fixed by running 'minikube delete'",
+			Issues:   []int{9130},
+		},
+		Regexp: re(`id_rsa: no such file or directory`),
+	},
+	{
+		Kind: Kind{
+			ID:       "GUEST_CONFIG_CORRUPT",
+			ExitCode: ExGuestConfig,
+			Advice:   "The existing node configuration appears to be corrupt. Run 'minikube delete'",
+			Issues:   []int{9175},
+		},
+		Regexp: re(`configuration.*corrupt`),
 	},
 }
 

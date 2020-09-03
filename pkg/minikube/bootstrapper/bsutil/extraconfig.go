@@ -148,6 +148,14 @@ func defaultOptionsForComponentAndVersion(component string, version semver.Versi
 
 // newComponentOptions creates a new componentOptions
 func newComponentOptions(opts config.ExtraOptionSlice, version semver.Version, featureGates string, cp config.Node) ([]componentOptions, error) {
+	if cp.Name == "" {
+		return nil, fmt.Errorf("controlPlane configuration is corrupt: no name: %+v", cp)
+	}
+
+	if cp.IP == "" {
+		return nil, fmt.Errorf("controlPlane configuration is corrupt: no IP: %+v", cp)
+	}
+
 	if invalidOpts := FindInvalidExtraConfigFlags(opts); len(invalidOpts) > 0 {
 		return nil, fmt.Errorf("unknown components %v. valid components are: %v", invalidOpts, KubeadmExtraConfigOpts)
 	}
