@@ -145,6 +145,11 @@ func init() {
 
 	// Sync the glog and klog flags.
 	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+		if f1.Value.String() == f1.DefValue {
+			klog.Errorf("skipping default flag %s: %s", f1.Name, f1.DefValue)
+			return
+		}
+
 		f2 := klogFlags.Lookup(f1.Name)
 		if f2 != nil {
 			value := f1.Value.String()
