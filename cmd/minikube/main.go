@@ -75,7 +75,7 @@ func main() {
 	cmd.Execute()
 }
 
-// bridgeLogMessages bridges non-glog logs into glog
+// bridgeLogMessages bridges non-klog.logs into glog
 func bridgeLogMessages() {
 	log.SetFlags(log.Lshortfile)
 	log.SetOutput(stdLogBridge{})
