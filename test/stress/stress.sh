@@ -62,8 +62,11 @@ lecho() {
   echo "$msg" | tee -a "${LOG_PATH}"
 }
 
-lecho "Downloading minikube ${UPGRADE_FROM} for upgrade test ..."
-curl -L -C - -o "${OLD_PATH}" https://storage.googleapis.com/minikube/releases/${UPGRADE_FROM}/minikube-darwin-amd64
+readonly OS=$(go env GOOS)
+readonly ARCH=$(go env GOARCH)
+lecho "Downloading minikube ${UPGRADE_FROM} ($OS, $ARCH) for upgrade test ..."
+
+curl -L -C - -o "${OLD_PATH}" https://storage.googleapis.com/minikube/releases/${UPGRADE_FROM}/minikube-${OS}-${ARCH}
 chmod 755 "${OLD_PATH}"
 
 
@@ -76,31 +79,31 @@ for i in $(seq 1 ${TOTAL}); do
 
   lecho ""
   lecho "Upgrade ${UPGRADE_FROM} to HEAD hot test: loop ${i}"
-  time ${OLD_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { lecho "${OLD_PATH} start -p ${PROFILE} ${START_FLAGS} failed, which is OK"; }
+  time ${OLD_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { lecho "${OLD_PATH} start -p ${PROFILE} ${START_FLAGS} failed, see ${LOG_PATH}"; exit 1; }
   lecho "Starting cluster built-by ${UPGRADE_FROM} with ${NEW_PATH}"
-  time ${NEW_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { fail "hot upgrade (loop $i)";  exit 1; }
+  time ${NEW_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { fail "hot upgrade (loop $i), see ${LOG_PATH}";  exit 2; }
   lecho "Deleting ${UPGRADE_FROM} built-cluster"
   ${NEW_PATH} delete -p ${PROFILE}
 
   lecho ""
   lecho "Upgrade ${UPGRADE_FROM} to HEAD cold test: loop ${i}"
-  time ${OLD_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { lecho "${OLD_PATH} start -p ${PROFILE} ${START_FLAGS} failed, which is OK"; }
+  time ${OLD_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { lecho "${OLD_PATH} start -p ${PROFILE} ${START_FLAGS} failed, see ${LOG_PATH}"; exit 3; }
 
   lecho "Stopping ${UPGRADE_FROM}} built-cluster"
   ${OLD_PATH} stop -p ${PROFILE} 2>>${LOG_PATH}
 
   lecho "Starting cluster built-by ${UPGRADE_FROM} with ${NEW_PATH}"
-  time ${NEW_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { fail "hot upgrade (loop $i)";  exit 1; }
+  time ${NEW_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { fail "hot upgrade (loop $i), see ${LOG_PATH}";  exit 4; }
 
   lecho ""
   lecho "Restart HEAD hot test: loop ${i}"
-  time ${NEW_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { fail "hot HEAD restart (loop $i)"; exit 3; }
+  time ${NEW_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { fail "hot HEAD restart (loop $i), see ${LOG_PATH}"; exit 5; }
 
   lecho ""
   lecho "Restart HEAD cold test: loop ${i}"
   ${NEW_PATH} stop -p ${PROFILE}
 
-  time ${NEW_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { fail "cold HEAD restart (loop $i)"; exit 4; }
+  time ${NEW_PATH} start -p ${PROFILE} ${START_FLAGS} --alsologtostderr 2>>${LOG_PATH} || { fail "cold HEAD restart (loop $i), see ${LOG_PATH}"; exit 6; }
 
   ${NEW_PATH} delete -p ${PROFILE}
 
